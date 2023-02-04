@@ -30,7 +30,7 @@ process.reco = cms.EDAnalyzer('RecoAnalyzer',
    eleIdRobustTight = cms.untracked.InputTag("eidRobustTight"),
    eleIdTight = cms.untracked.InputTag("eidTight"),
    Rho = cms.untracked.InputTag("fixedGridRhoAll"),
-   HBHERecHitTag = cms.untracked.InputTag("reducedHcalRecHits:hbhereco")
+   HBHERecHit = cms.untracked.InputTag("reducedHcalRecHits:hbhereco")
                               )
 
 process.TFileService = cms.Service("TFileService", fileName=cms.string("Reco_tree.root"))

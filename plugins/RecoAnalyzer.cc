@@ -65,7 +65,6 @@ private:
   void analyze(const edm::Event&, const edm::EventSetup&) override;
   void endJob() override;
 
-  //edm::EDGetTokenT<reco::GsfElectronCollection> ElectronToken;
   edm::EDGetToken electronsToken_;
   edm::EDGetTokenT<reco::SuperClusterCollection> SuperClusterEBToken;
   edm::EDGetTokenT<reco::SuperClusterCollection> SuperClusterEEToken;
@@ -76,7 +75,7 @@ private:
   edm::EDGetTokenT<edm::ValueMap<float> > eleIdRobustTightToken;
   edm::EDGetTokenT<edm::ValueMap<float> > eleIdTightToken;
   edm::EDGetTokenT<double> RhoToken;
-  edm::EDGetTokenT<HBHERecHitCollection> hbheRHcToken_;
+  edm::EDGetTokenT<HBHERecHitCollection> hbheRHcToken;
 
   edm::InputTag Electron_;
   edm::InputTag SuperClusterEB_;
@@ -116,10 +115,8 @@ eleIdRobustLoose_(iConfig.getUntrackedParameter<edm::InputTag>("eleIdRobustLoose
 eleIdRobustTight_(iConfig.getUntrackedParameter<edm::InputTag>("eleIdRobustTight")),
 eleIdTight_(iConfig.getUntrackedParameter<edm::InputTag>("eleIdTight")),
 Rho_(iConfig.getUntrackedParameter<edm::InputTag>("Rho")),
-hcalRecHitsInputHBHE_(iConfig.getUntrackedParameter<edm::InputTag>("HBHERecHitTag"))
+hcalRecHitsInputHBHE_(iConfig.getUntrackedParameter<edm::InputTag>("HBHERecHit"))
 {
-  //ElectronToken = consumes<reco::GsfElectronCollection>(Electron_);
-  //electronsToken_    = mayConsume<edm::View<reco::GsfElectron> >(iConfig.getUntrackedParameter<edm::InputTag>("Electron"));
   electronsToken_    = consumes<edm::View<reco::GsfElectron> >(Electron_);
   SuperClusterEBToken = consumes<reco::SuperClusterCollection>(SuperClusterEB_);
   SuperClusterEEToken = consumes<reco::SuperClusterCollection>(SuperClusterEE_);
@@ -130,8 +127,7 @@ hcalRecHitsInputHBHE_(iConfig.getUntrackedParameter<edm::InputTag>("HBHERecHitTa
   eleIdRobustTightToken = consumes<edm::ValueMap<float>>(eleIdRobustTight_);
   eleIdTightToken = consumes<edm::ValueMap<float>>(eleIdTight_);
   RhoToken = consumes<double>(Rho_);
-  hbheRHcToken_= consumes<HBHERecHitCollection>(hcalRecHitsInputHBHE_);
-  //hcalRecHitsInputHBHE_ = iConfig.getUntrackedParameter<edm::InputTag>("hcalRecHitsInputHBHE");
+  hbheRHcToken= consumes<HBHERecHitCollection>(hcalRecHitsInputHBHE_);
 
   edm::Service<TFileService> fs;
   reco_tree = fs->make<TTree>("Events", "Events");
@@ -228,15 +224,7 @@ void RecoAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSet
   iEvent.getByToken(RhoToken, rhoHandle);
 
   edm::Handle<HBHERecHitCollection> hcalRecHitsHandle;
-  iEvent.getByToken(hbheRHcToken_, hcalRecHitsHandle);
-
-  /*edm::Handle<HBHERecHitCollection> hcalRecHitsHandle;
-  iEvent.getByLabel(hcalRecHitsInputHBHE_, hcalRecHitsHandle);*/
-
-  //HBHERecHitMetaCollection *mhbhe;
-  /*if (!hcalRecHitsHandle.failedToGet()) {
-        mhbhe =  new HBHERecHitMetaCollection(*hcalRecHitsHandle);
-    }*/
+  iEvent.getByToken(hbheRHcToken, hcalRecHitsHandle);
 
   numSC=0;
   numele=0;
