@@ -91,7 +91,7 @@ private:
 
   TTree *reco_tree;
   std::vector<float> ele_pt,ele_eta,ele_phi,full5x5_sigmaIetaIeta,dEtaSeed,dPhiIn,HoverE,relIso,Ep,
-  el_sc_eta, el_sc_E,el_sc_phi,sc_eta, sc_pt, sc_phi, sc_E, eleIdLoose,eleIdTight,eleIdRobustLoose,eleIdRobustTight;
+  el_sc_eta, el_sc_E,el_sc_phi,sc_eta, sc_pt, sc_phi, sc_E, eleIdLoose,eleIdTight,eleIdRobustLoose,eleIdRobustTight,HcalSum;
   std::vector<int> ele_charge,SCref,ExpMissInnerHits;
   std::vector<bool> PassConversionVeto,CutBasedLoose,CutBasedMedium,CutBasedTight;
   float EleSC_mass,SCSC_mass,rho;
@@ -175,6 +175,8 @@ hcalRecHitsInputHBHE_(iConfig.getUntrackedParameter<edm::InputTag>("HBHERecHit")
   reco_tree->Branch("sc_E",&sc_E);
   reco_tree->Branch("sc_pt",&sc_pt);
   reco_tree->Branch("sc_phi",&sc_phi);
+
+  reco_tree->Branch("HcalSum",&HcalSum);
 
   cachedCaloGeometryID_ = 0;
 
@@ -262,7 +264,9 @@ void RecoAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSet
   CutBasedLoose.clear();
   CutBasedMedium.clear();
   CutBasedTight.clear();
+  HcalSum.clear();
 
+  float Sum;
 
   for (auto sc = superclustersEB->cbegin(); sc != superclustersEB->cend(); ++sc)
   {
@@ -274,6 +278,20 @@ void RecoAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSet
       match=EleCounter;
       EleCounter++;
     }
+    Sum=0.;
+    std::cout<<numSC<<std::endl;
+    for(auto iterator=hcalRecHitsHandle->begin();iterator != hcalRecHitsHandle->end(); ++iterator)
+    {
+      double HitEnergy = iterator->energy();
+      const auto phit = caloGeometry_.product()->getGeometry(HcalDetId(iterator->detid()))->repPos();
+      double dR2 = reco::deltaR2(sc->eta(),sc->phi(),phit.eta(),phit.phi());
+      if(dR2<0.4) //0<dR2<0.4
+      Sum+=HitEnergy;
+      std::cout<<HitEnergy<<" ";
+    }
+    std::cout<<std::endl;
+    std::cout<<Sum<<std::endl;
+    HcalSum.push_back(Sum);
     SCref.push_back(match);
     sc_E.push_back(sc->energy());
     sc_eta.push_back(sc->eta());
@@ -293,6 +311,21 @@ void RecoAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSet
       match=EleCounter;
       EleCounter++;
     }
+
+    Sum=0.;
+    std::cout<<numSC<<std::endl;
+    for(auto iterator=hcalRecHitsHandle->begin();iterator != hcalRecHitsHandle->end(); ++iterator)
+    {
+      double HitEnergy = iterator->energy();
+      const auto phit = caloGeometry_.product()->getGeometry(HcalDetId(iterator->detid()))->repPos();
+      double dR2 = reco::deltaR2(sc->eta(),sc->phi(),phit.eta(),phit.phi());
+      if(dR2<0.4) //0<dR2<0.4
+      Sum+=HitEnergy;
+      std::cout<<HitEnergy<<" ";
+    }
+    std::cout<<std::endl;
+    std::cout<<Sum<<std::endl;
+    HcalSum.push_back(Sum);
     SCref.push_back(match);
     sc_E.push_back(sc->energy());
     sc_eta.push_back(sc->eta());
@@ -302,7 +335,7 @@ void RecoAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSet
   }
 
   rho = *(rhoHandle.product());
-  const HBHERecHitCollection* hithbhe_ = hcalRecHitsHandle.product();
+  //const HBHERecHitCollection* hithbhe_ = hcalRecHitsHandle.product();
 
   for (auto it = electrons->begin(); it != electrons->end(); ++it)
   {
@@ -337,8 +370,12 @@ void RecoAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSet
   }
 
   //typename HBHERecHitCollection::const_iterator i = HBHEhits->begin();
-  for(auto iterator=hcalRecHitsHandle->begin();iterator != hcalRecHitsHandle->end(); ++iterator)
-  std::cout<<HcalDetId(iterator->detid()).ieta()<<std::endl;
+  /*for(auto iterator=hcalRecHitsHandle->begin();iterator != hcalRecHitsHandle->end(); ++iterator)
+  {
+    std::cout<<HcalDetId(iterator->detid()).ieta()<<std::endl;
+    const auto phit = caloGeometry_.product()->getGeometry(HcalDetId(iterator->detid()))->repPos();
+    std::cout<<phit.eta()<<std::endl;
+  }*/
 
   HoECalculator hoeCalc(caloGeometry_);
 
