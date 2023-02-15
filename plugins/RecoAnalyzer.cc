@@ -279,18 +279,14 @@ void RecoAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSet
       EleCounter++;
     }
     Sum=0.;
-    std::cout<<numSC<<std::endl;
     for(auto iterator=hcalRecHitsHandle->begin();iterator != hcalRecHitsHandle->end(); ++iterator)
     {
       double HitEnergy = iterator->energy();
       const auto phit = caloGeometry_.product()->getGeometry(HcalDetId(iterator->detid()))->repPos();
       double dR2 = reco::deltaR2(sc->eta(),sc->phi(),phit.eta(),phit.phi());
-      if(dR2<0.4) //0<dR2<0.4
+      if(dR2<0.15) //0<dR2<0.4
       Sum+=HitEnergy;
-      std::cout<<HitEnergy<<" ";
     }
-    std::cout<<std::endl;
-    std::cout<<Sum<<std::endl;
     HcalSum.push_back(Sum);
     SCref.push_back(match);
     sc_E.push_back(sc->energy());
@@ -313,18 +309,14 @@ void RecoAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSet
     }
 
     Sum=0.;
-    std::cout<<numSC<<std::endl;
     for(auto iterator=hcalRecHitsHandle->begin();iterator != hcalRecHitsHandle->end(); ++iterator)
     {
       double HitEnergy = iterator->energy();
       const auto phit = caloGeometry_.product()->getGeometry(HcalDetId(iterator->detid()))->repPos();
       double dR2 = reco::deltaR2(sc->eta(),sc->phi(),phit.eta(),phit.phi());
-      if(dR2<0.4) //0<dR2<0.4
+      if(dR2<0.15) //0<dR2<0.4
       Sum+=HitEnergy;
-      std::cout<<HitEnergy<<" ";
     }
-    std::cout<<std::endl;
-    std::cout<<Sum<<std::endl;
     HcalSum.push_back(Sum);
     SCref.push_back(match);
     sc_E.push_back(sc->energy());
@@ -379,7 +371,8 @@ void RecoAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSet
 
   HoECalculator hoeCalc(caloGeometry_);
 
-  if((numele==1 && numSC==2 && ele_pt[0]>5 && sc_pt[0]>5 && sc_pt[1]>5) || (numele==2 && numSC==2 && ele_pt[0]>5 && ele_pt[1]>5 && sc_pt[0]>5 && sc_pt[1]>5 && ele_charge[0]==-1*ele_charge[1]))
+  //if((numele==1 && numSC==2 && ele_pt[0]>5 && sc_pt[0]>5 && sc_pt[1]>5) || (numele==2 && numSC==2 && ele_pt[0]>5 && ele_pt[1]>5 && sc_pt[0]>5 && sc_pt[1]>5 && ele_charge[0]==-1*ele_charge[1]))
+    if(numele==1 && numSC==2 && ele_pt[0]>5 && sc_pt[0]>5 && sc_pt[1]>5)
   {
     P0.SetPtEtaPhiM(ele_pt[0],ele_eta[0],ele_phi[0],0);
     if(SCref[0]==0)
