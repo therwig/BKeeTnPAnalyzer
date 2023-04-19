@@ -323,12 +323,14 @@ void RecoAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSet
     SumPt=0;
     for(auto tr = tkColl->begin(); tr != tkColl->end(); ++tr)
     {
-      //std::cout<<tr->dz(pv)<<std::endl;
-      double dz = fabs(tr->dz(pv));
+      double dR2 = reco::deltaR2(el->eta(),el->phi(),tr->eta(),tr->phi());
+      //double dz = fabs(tr->dz(pv));
+      double dz = fabs(tr->vz()-el->vz());
+      //std::cout<<dz<<std::endl;
       double dEta = fabs(tr->eta()-el->eta());
       double TrackPt = tr->pt();
       //std::cout<<el->trackPositionAtVtx().z()<<" "<<tr->z()<<std::endl;
-      if(dz<0.1 && TrackPt>2 && dEta>0.005)
+      if(dR2>0 && dR2<0.4 && dz<0.1 && TrackPt>1 && dEta>0.005)
       SumPt+=TrackPt;
     }
     trkIsoEle.push_back(SumPt);
@@ -351,9 +353,9 @@ void RecoAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSet
     SumPt=0;
     for(auto tr = tkColl->begin(); tr != tkColl->end(); ++tr)
     {
-      //double dR2 = reco::deltaR2(sc->eta(),sc->phi(),tr->eta(),tr->phi());
+      double dR2 = reco::deltaR2(sc->eta(),sc->phi(),tr->eta(),tr->phi());
       double TrackPt = tr->pt();
-      if(TrackPt>2)
+      if(dR2>0 && dR2<0.4 && TrackPt>1)
       SumPt+=TrackPt;
     }
 
@@ -393,9 +395,9 @@ void RecoAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSet
     SumPt=0;
     for(auto tr = tkColl->begin(); tr != tkColl->end(); ++tr)
     {
-      //double dR2 = reco::deltaR2(sc->eta(),sc->phi(),tr->eta(),tr->phi());
+      double dR2 = reco::deltaR2(sc->eta(),sc->phi(),tr->eta(),tr->phi());
       double TrackPt = tr->pt();
-      if(TrackPt>2)
+      if(dR2>0 && dR2<0.4 && TrackPt>1)
       SumPt+=TrackPt;
     }
 
