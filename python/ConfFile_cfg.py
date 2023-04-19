@@ -10,7 +10,7 @@ process.load('Configuration.StandardSequences.FrontierConditions_GlobalTag_cff')
 
 process.GlobalTag.globaltag = '106X_dataRun2_v35'
 
-process.maxEvents = cms.untracked.PSet( input = cms.untracked.int32(100) )
+process.maxEvents = cms.untracked.PSet( input = cms.untracked.int32(-1))
 process.MessageLogger.cerr.FwkReport.reportEvery = 1000000
 
 process.source = cms.Source("PoolSource",fileNames = cms.untracked.vstring('file:863EAD78-D853-F348-B135-00B596FB6478.root'))
@@ -30,7 +30,9 @@ process.reco = cms.EDAnalyzer('RecoAnalyzer',
    eleIdRobustTight = cms.untracked.InputTag("eidRobustTight"),
    eleIdTight = cms.untracked.InputTag("eidTight"),
    Rho = cms.untracked.InputTag("fixedGridRhoAll"),
-   HBHERecHit = cms.untracked.InputTag("reducedHcalRecHits:hbhereco")
+   HBHERecHit = cms.untracked.InputTag("reducedHcalRecHits:hbhereco"),
+   Track = cms.untracked.InputTag("generalTracks"),
+   Vertex = cms.untracked.InputTag("offlinePrimaryVertices")
                               )
 
 process.TFileService = cms.Service("TFileService", fileName=cms.string("Reco_tree.root"))

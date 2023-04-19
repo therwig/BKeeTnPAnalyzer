@@ -76,6 +76,8 @@ private:
   edm::EDGetTokenT<edm::ValueMap<float> > eleIdTightToken;
   edm::EDGetTokenT<double> RhoToken;
   edm::EDGetTokenT<HBHERecHitCollection> hbheRHcToken;
+  edm::EDGetTokenT<reco::TrackCollection> TrackToken;
+  edm::EDGetTokenT<reco::VertexCollection> VertexToken;
 
   edm::InputTag Electron_;
   edm::InputTag SuperClusterEB_;
@@ -88,18 +90,20 @@ private:
   edm::InputTag eleIdTight_;
   edm::InputTag Rho_;
   edm::InputTag hcalRecHitsInputHBHE_;
+  edm::InputTag TrackInputTag_;
+  edm::InputTag VertexInputTag_;
 
   TTree *reco_tree;
   std::vector<float> ele_pt,ele_eta,ele_phi,full5x5_sigmaIetaIeta,dEtaSeed,dPhiIn,HoverE,relIso,Ep,
-  el_sc_eta, el_sc_E,el_sc_phi,sc_eta, sc_pt, sc_phi, sc_E, eleIdLoose,eleIdTight,eleIdRobustLoose,eleIdRobustTight,HcalSum;
+  el_sc_eta, el_sc_E,el_sc_phi,sc_eta, sc_pt, sc_phi, sc_E, eleIdLoose,eleIdTight,eleIdRobustLoose,eleIdRobustTight,trkIsoSC,trkIsoEle;
   std::vector<int> ele_charge,SCref,ExpMissInnerHits;
   std::vector<bool> PassConversionVeto,CutBasedLoose,CutBasedMedium,CutBasedTight;
   float EleSC_mass,SCSC_mass,rho;
   int numele, PFnumele,numSC,EleCounter,match;
   TLorentzVector P,P0,P1,p,p0,p1;
 
-  unsigned long long cachedCaloGeometryID_;
-  edm::ESHandle<CaloGeometry> caloGeometry_;
+  //unsigned long long cachedCaloGeometryID_;
+  //edm::ESHandle<CaloGeometry> caloGeometry_;
 
 
 };
@@ -115,7 +119,9 @@ eleIdRobustLoose_(iConfig.getUntrackedParameter<edm::InputTag>("eleIdRobustLoose
 eleIdRobustTight_(iConfig.getUntrackedParameter<edm::InputTag>("eleIdRobustTight")),
 eleIdTight_(iConfig.getUntrackedParameter<edm::InputTag>("eleIdTight")),
 Rho_(iConfig.getUntrackedParameter<edm::InputTag>("Rho")),
-hcalRecHitsInputHBHE_(iConfig.getUntrackedParameter<edm::InputTag>("HBHERecHit"))
+hcalRecHitsInputHBHE_(iConfig.getUntrackedParameter<edm::InputTag>("HBHERecHit")),
+TrackInputTag_(iConfig.getUntrackedParameter<edm::InputTag>("Track")),
+VertexInputTag_(iConfig.getUntrackedParameter<edm::InputTag>("Vertex"))
 {
   electronsToken_    = consumes<edm::View<reco::GsfElectron> >(Electron_);
   SuperClusterEBToken = consumes<reco::SuperClusterCollection>(SuperClusterEB_);
@@ -128,6 +134,8 @@ hcalRecHitsInputHBHE_(iConfig.getUntrackedParameter<edm::InputTag>("HBHERecHit")
   eleIdTightToken = consumes<edm::ValueMap<float>>(eleIdTight_);
   RhoToken = consumes<double>(Rho_);
   hbheRHcToken= consumes<HBHERecHitCollection>(hcalRecHitsInputHBHE_);
+  TrackToken = consumes<reco::TrackCollection>(TrackInputTag_);
+  VertexToken = consumes<reco::VertexCollection>(VertexInputTag_);
 
   edm::Service<TFileService> fs;
   reco_tree = fs->make<TTree>("Events", "Events");
@@ -176,9 +184,13 @@ hcalRecHitsInputHBHE_(iConfig.getUntrackedParameter<edm::InputTag>("HBHERecHit")
   reco_tree->Branch("sc_pt",&sc_pt);
   reco_tree->Branch("sc_phi",&sc_phi);
 
-  reco_tree->Branch("HcalSum",&HcalSum);
+  //TrackIsolation
+  reco_tree->Branch("trkIsoSC",&trkIsoSC);
+  reco_tree->Branch("trkIsoEle",&trkIsoEle);
 
-  cachedCaloGeometryID_ = 0;
+  //reco_tree->Branch("HcalSum",&HcalSum);
+
+  //cachedCaloGeometryID_ = 0;
 
 }
 
@@ -189,10 +201,10 @@ RecoAnalyzer::~RecoAnalyzer() {
 void RecoAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup) {
   using namespace edm;
 
-  if (cachedCaloGeometryID_ != iSetup.get<CaloGeometryRecord>().cacheIdentifier()) {
+  /*if (cachedCaloGeometryID_ != iSetup.get<CaloGeometryRecord>().cacheIdentifier()) {
         cachedCaloGeometryID_ = iSetup.get<CaloGeometryRecord>().cacheIdentifier();
         iSetup.get<CaloGeometryRecord>().get(caloGeometry_);
-    }
+    }*/
 
   edm::Handle<edm::View<reco::GsfElectron> > electrons;
   iEvent.getByToken(electronsToken_, electrons);
@@ -227,6 +239,12 @@ void RecoAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSet
 
   edm::Handle<HBHERecHitCollection> hcalRecHitsHandle;
   iEvent.getByToken(hbheRHcToken, hcalRecHitsHandle);
+
+  edm::Handle<reco::TrackCollection> TrackHandle;
+  iEvent.getByToken(TrackToken, TrackHandle);
+
+  edm::Handle<reco::VertexCollection> VertexHandle;
+  iEvent.getByToken(VertexToken, VertexHandle);
 
   numSC=0;
   numele=0;
@@ -264,21 +282,82 @@ void RecoAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSet
   CutBasedLoose.clear();
   CutBasedMedium.clear();
   CutBasedTight.clear();
-  HcalSum.clear();
+  trkIsoSC.clear();
+  trkIsoEle.clear();
+  //HcalSum.clear();
 
-  float Sum;
+  float SumPt;
+
+  const reco::TrackCollection* tkColl = TrackHandle.product();
+  math::XYZPoint pv(VertexHandle->begin()->position());
+
+  for (auto el = electrons->begin(); el != electrons->end(); ++el)
+  {
+    ele_pt.push_back(el->pt());
+    ele_eta.push_back(el->eta());
+    ele_phi.push_back(el->phi());
+    el_sc_eta.push_back(el->superCluster()->eta());
+    el_sc_phi.push_back(el->superCluster()->phi());
+    el_sc_E.push_back(el->superCluster()->energy());
+    ele_charge.push_back(el->charge());
+    full5x5_sigmaIetaIeta.push_back(el->full5x5_sigmaIetaIeta());
+    dEtaSeed.push_back(el->superCluster().isNonnull() && el->superCluster()->seed().isNonnull() ?
+    el->deltaEtaSuperClusterTrackAtVtx() - el->superCluster()->eta() + el->superCluster()->seed()->eta() : std::numeric_limits<float>::max());
+    dPhiIn.push_back(el->deltaPhiSuperClusterTrackAtVtx());
+    HoverE.push_back(el->hadronicOverEm());
+    const float ecal_energy_inverse = 1.0/el->ecalEnergy();
+    const float eSCoverP = el->eSuperClusterOverP();
+    Ep.push_back(std::abs(1.0 - eSCoverP)*ecal_energy_inverse);
+    relIso.push_back((float)(el->pfIsolationVariables().sumChargedHadronPt+std::max(float(0.0),el->pfIsolationVariables().sumNeutralHadronEt+el->pfIsolationVariables().sumPhotonEt))/el->pt());
+    constexpr auto missingHitType = reco::HitPattern::MISSING_INNER_HITS;
+    ExpMissInnerHits.push_back(el->gsfTrack()->hitPattern().numberOfLostHits(missingHitType));
+    PassConversionVeto.push_back(!ConversionTools::hasMatchedConversion(*el, *hConversions, beamspot.position()));
+    const auto ele = electrons->ptrAt(numele);
+    eleIdLoose.push_back((*ele_id_decisions_loose)[ele]);
+    eleIdTight.push_back((*ele_id_decisions_tight)[ele]);
+    eleIdRobustLoose.push_back((*ele_id_decisions_robust_loose)[ele]);
+    eleIdRobustTight.push_back((*ele_id_decisions_robust_tight)[ele]);
+    CutBasedLoose.push_back(CutBasedLooseID(full5x5_sigmaIetaIeta[numele],dEtaSeed[numele],dPhiIn[numele],HoverE[numele],Ep[numele],relIso[numele],ExpMissInnerHits[numele],PassConversionVeto[numele],el->superCluster()->energy(),*(rhoHandle.product()),el->pt(),el->superCluster()->eta()));
+    CutBasedMedium.push_back(CutBasedMediumID(full5x5_sigmaIetaIeta[numele],dEtaSeed[numele],dPhiIn[numele],HoverE[numele],Ep[numele],relIso[numele],ExpMissInnerHits[numele],PassConversionVeto[numele],el->superCluster()->energy(),*(rhoHandle.product()),el->pt(),el->superCluster()->eta()));
+    CutBasedTight.push_back(CutBasedTightID(full5x5_sigmaIetaIeta[numele],dEtaSeed[numele],dPhiIn[numele],HoverE[numele],Ep[numele],relIso[numele],ExpMissInnerHits[numele],PassConversionVeto[numele],el->superCluster()->energy(),*(rhoHandle.product()),el->pt(),el->superCluster()->eta()));
+    SumPt=0;
+    for(auto tr = tkColl->begin(); tr != tkColl->end(); ++tr)
+    {
+      //std::cout<<tr->dz(pv)<<std::endl;
+      double dz = fabs(tr->dz(pv));
+      double dEta = fabs(tr->eta()-el->eta());
+      double TrackPt = tr->pt();
+      //std::cout<<el->trackPositionAtVtx().z()<<" "<<tr->z()<<std::endl;
+      if(dz<0.1 && TrackPt>2 && dEta>0.005)
+      SumPt+=TrackPt;
+    }
+    trkIsoEle.push_back(SumPt);
+    numele++;
+  }
+
+  //float Sum;
 
   for (auto sc = superclustersEB->cbegin(); sc != superclustersEB->cend(); ++sc)
   {
     EleCounter=0;
     match=99;
-    for (auto it = electrons->begin(); it != electrons->end(); ++it)
+    for (auto el = electrons->begin(); el != electrons->end(); ++el)
     {
-      if(sc->eta()==it->superCluster()->eta() && sc->phi()==it->superCluster()->phi()) //matching
+      if(sc->eta()==el->superCluster()->eta() && sc->phi()==el->superCluster()->phi()) //matching
       match=EleCounter;
       EleCounter++;
     }
-    Sum=0.;
+
+    SumPt=0;
+    for(auto tr = tkColl->begin(); tr != tkColl->end(); ++tr)
+    {
+      //double dR2 = reco::deltaR2(sc->eta(),sc->phi(),tr->eta(),tr->phi());
+      double TrackPt = tr->pt();
+      if(TrackPt>2)
+      SumPt+=TrackPt;
+    }
+
+    /*Sum=0.;
     for(auto iterator=hcalRecHitsHandle->begin();iterator != hcalRecHitsHandle->end(); ++iterator)
     {
       double HitEnergy = iterator->energy();
@@ -287,7 +366,9 @@ void RecoAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSet
       if(dR2<0.15) //0<dR2<0.4
       Sum+=HitEnergy;
     }
-    HcalSum.push_back(Sum);
+
+    HcalSum.push_back(Sum);*/
+    trkIsoSC.push_back(SumPt);
     SCref.push_back(match);
     sc_E.push_back(sc->energy());
     sc_eta.push_back(sc->eta());
@@ -296,19 +377,29 @@ void RecoAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSet
     numSC++;
   }
 
+
   for (auto sc = superclustersEE->cbegin(); sc != superclustersEE->cend(); ++sc)
   {
     EleCounter=0;
     match=99;
 
-    for (auto it = electrons->begin(); it != electrons->end(); ++it)
+    for (auto el = electrons->begin(); el != electrons->end(); ++el)
     {
-      if(sc->eta()==it->superCluster()->eta() && sc->phi()==it->superCluster()->phi()) //matching
+      if(sc->eta()==el->superCluster()->eta() && sc->phi()==el->superCluster()->phi()) //matching
       match=EleCounter;
       EleCounter++;
     }
 
-    Sum=0.;
+    SumPt=0;
+    for(auto tr = tkColl->begin(); tr != tkColl->end(); ++tr)
+    {
+      //double dR2 = reco::deltaR2(sc->eta(),sc->phi(),tr->eta(),tr->phi());
+      double TrackPt = tr->pt();
+      if(TrackPt>2)
+      SumPt+=TrackPt;
+    }
+
+    /*Sum=0.;
     for(auto iterator=hcalRecHitsHandle->begin();iterator != hcalRecHitsHandle->end(); ++iterator)
     {
       double HitEnergy = iterator->energy();
@@ -317,7 +408,8 @@ void RecoAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSet
       if(dR2<0.15) //0<dR2<0.4
       Sum+=HitEnergy;
     }
-    HcalSum.push_back(Sum);
+    HcalSum.push_back(Sum);*/
+    trkIsoSC.push_back(SumPt);
     SCref.push_back(match);
     sc_E.push_back(sc->energy());
     sc_eta.push_back(sc->eta());
@@ -329,38 +421,6 @@ void RecoAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSet
   rho = *(rhoHandle.product());
   //const HBHERecHitCollection* hithbhe_ = hcalRecHitsHandle.product();
 
-  for (auto it = electrons->begin(); it != electrons->end(); ++it)
-  {
-    ele_pt.push_back(it->pt());
-    ele_eta.push_back(it->eta());
-    ele_phi.push_back(it->phi());
-    el_sc_eta.push_back(it->superCluster()->eta());
-    el_sc_phi.push_back(it->superCluster()->phi());
-    el_sc_E.push_back(it->superCluster()->energy());
-    ele_charge.push_back(it->charge());
-    full5x5_sigmaIetaIeta.push_back(it->full5x5_sigmaIetaIeta());
-    dEtaSeed.push_back(it->superCluster().isNonnull() && it->superCluster()->seed().isNonnull() ?
-    it->deltaEtaSuperClusterTrackAtVtx() - it->superCluster()->eta() + it->superCluster()->seed()->eta() : std::numeric_limits<float>::max());
-    dPhiIn.push_back(it->deltaPhiSuperClusterTrackAtVtx());
-    HoverE.push_back(it->hadronicOverEm());
-    const float ecal_energy_inverse = 1.0/it->ecalEnergy();
-    const float eSCoverP = it->eSuperClusterOverP();
-    Ep.push_back(std::abs(1.0 - eSCoverP)*ecal_energy_inverse);
-    relIso.push_back((float)(it->pfIsolationVariables().sumChargedHadronPt+std::max(float(0.0),it->pfIsolationVariables().sumNeutralHadronEt+it->pfIsolationVariables().sumPhotonEt))/it->pt());
-    constexpr auto missingHitType = reco::HitPattern::MISSING_INNER_HITS;
-    ExpMissInnerHits.push_back(it->gsfTrack()->hitPattern().numberOfLostHits(missingHitType));
-    PassConversionVeto.push_back(!ConversionTools::hasMatchedConversion(*it, *hConversions, beamspot.position()));
-    const auto el = electrons->ptrAt(numele);
-    eleIdLoose.push_back((*ele_id_decisions_loose)[el]);
-    eleIdTight.push_back((*ele_id_decisions_tight)[el]);
-    eleIdRobustLoose.push_back((*ele_id_decisions_robust_loose)[el]);
-    eleIdRobustTight.push_back((*ele_id_decisions_robust_tight)[el]);
-    CutBasedLoose.push_back(CutBasedLooseID(full5x5_sigmaIetaIeta[numele],dEtaSeed[numele],dPhiIn[numele],HoverE[numele],Ep[numele],relIso[numele],ExpMissInnerHits[numele],PassConversionVeto[numele],it->superCluster()->energy(),*(rhoHandle.product()),it->pt(),it->superCluster()->eta()));
-    CutBasedMedium.push_back(CutBasedMediumID(full5x5_sigmaIetaIeta[numele],dEtaSeed[numele],dPhiIn[numele],HoverE[numele],Ep[numele],relIso[numele],ExpMissInnerHits[numele],PassConversionVeto[numele],it->superCluster()->energy(),*(rhoHandle.product()),it->pt(),it->superCluster()->eta()));
-    CutBasedTight.push_back(CutBasedTightID(full5x5_sigmaIetaIeta[numele],dEtaSeed[numele],dPhiIn[numele],HoverE[numele],Ep[numele],relIso[numele],ExpMissInnerHits[numele],PassConversionVeto[numele],it->superCluster()->energy(),*(rhoHandle.product()),it->pt(),it->superCluster()->eta()));
-    numele++;
-  }
-
   //typename HBHERecHitCollection::const_iterator i = HBHEhits->begin();
   /*for(auto iterator=hcalRecHitsHandle->begin();iterator != hcalRecHitsHandle->end(); ++iterator)
   {
@@ -369,10 +429,11 @@ void RecoAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSet
     std::cout<<phit.eta()<<std::endl;
   }*/
 
-  HoECalculator hoeCalc(caloGeometry_);
+  //HoECalculator hoeCalc(caloGeometry_);
 
-  //if((numele==1 && numSC==2 && ele_pt[0]>5 && sc_pt[0]>5 && sc_pt[1]>5) || (numele==2 && numSC==2 && ele_pt[0]>5 && ele_pt[1]>5 && sc_pt[0]>5 && sc_pt[1]>5 && ele_charge[0]==-1*ele_charge[1]))
-    if(numele==1 && numSC==2 && ele_pt[0]>5 && sc_pt[0]>5 && sc_pt[1]>5)
+   //if((numele==1 && numSC==2) || (numele==2 && numSC==2 && ele_charge[0]==-1*ele_charge[1]))
+  if((numele==1 && numSC==2 && ele_pt[0]>5 && sc_pt[0]>5 && sc_pt[1]>5) || (numele==2 && numSC==2 && ele_pt[0]>5 && ele_pt[1]>5 && sc_pt[0]>5 && sc_pt[1]>5 && ele_charge[0]==-1*ele_charge[1]))
+    //if(numele==1 && numSC==2 && ele_pt[0]>5 && sc_pt[0]>5 && sc_pt[1]>5)
   {
     P0.SetPtEtaPhiM(ele_pt[0],ele_eta[0],ele_phi[0],0);
     if(SCref[0]==0)
