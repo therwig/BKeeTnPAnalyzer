@@ -78,7 +78,8 @@ private:
   edm::EDGetTokenT<HBHERecHitCollection> hbheRHcToken;
   edm::EDGetTokenT<reco::TrackCollection> TrackToken;
   edm::EDGetTokenT<reco::VertexCollection> VertexToken;
-  edm::EDGetTokenT<edm::ValueMap<float> > mvaValuesMapToken;
+  edm::EDGetTokenT<edm::ValueMap<float> > mvaV2IsoValuesMapToken;
+  edm::EDGetTokenT<edm::ValueMap<float> > mvaV2NoIsoValuesMapToken;
 
   edm::InputTag Electron_;
   edm::InputTag SuperClusterEB_;
@@ -93,12 +94,13 @@ private:
   edm::InputTag hcalRecHitsInputHBHE_;
   edm::InputTag TrackInputTag_;
   edm::InputTag VertexInputTag_;
-  edm::InputTag mvaValuesMapInputTag_;
+  edm::InputTag mvaV2IsoValuesMapInputTag_;
+  edm::InputTag mvaV2NoIsoValuesMapInputTag_;
 
   TTree *reco_tree;
   std::vector<float> ele_pt,ele_eta,ele_phi,full5x5_sigmaIetaIeta,dEtaSeed,dPhiIn,HoverE,relIso,Ep,
   el_sc_eta, el_sc_E,el_sc_phi,sc_eta, sc_pt, sc_phi, sc_E, eleIdLoose,eleIdTight,eleIdRobustLoose,eleIdRobustTight,trkIsoSC,trkIsoEle,
-  tr_pt,tr_eta,tr_phi, EleSC_mass,EleTrk_mass;
+  tr_pt,tr_eta,tr_phi, EleSC_mass,EleTrk_mass,ElectronMVAEstimatorRun2Fall17IsoV2Values,ElectronMVAEstimatorRun2Fall17NoIsoV2Values;
   std::vector<int> ele_charge,SCref,ExpMissInnerHits,EleTRKref;
   std::vector<bool> PassConversionVeto,CutBasedLoose,CutBasedMedium,CutBasedTight;
   float rho;
@@ -125,7 +127,8 @@ Rho_(iConfig.getUntrackedParameter<edm::InputTag>("Rho")),
 hcalRecHitsInputHBHE_(iConfig.getUntrackedParameter<edm::InputTag>("HBHERecHit")),
 TrackInputTag_(iConfig.getUntrackedParameter<edm::InputTag>("Track")),
 VertexInputTag_(iConfig.getUntrackedParameter<edm::InputTag>("Vertex")),
-mvaValuesMapInputTag_(iConfig.getParameter<edm::InputTag>("mvaValuesMap"))
+mvaV2IsoValuesMapInputTag_(iConfig.getUntrackedParameter<edm::InputTag>("mvaV2IsoValuesMap")),
+mvaV2NoIsoValuesMapInputTag_(iConfig.getUntrackedParameter<edm::InputTag>("mvaV2NoIsoValuesMap"))
 {
   electronsToken_    = consumes<edm::View<reco::GsfElectron> >(Electron_);
   SuperClusterEBToken = consumes<reco::SuperClusterCollection>(SuperClusterEB_);
@@ -140,7 +143,8 @@ mvaValuesMapInputTag_(iConfig.getParameter<edm::InputTag>("mvaValuesMap"))
   hbheRHcToken= consumes<HBHERecHitCollection>(hcalRecHitsInputHBHE_);
   TrackToken = consumes<reco::TrackCollection>(TrackInputTag_);
   VertexToken = consumes<reco::VertexCollection>(VertexInputTag_);
-  mvaValuesMapToken = consumes<edm::ValueMap<float>>(mvaValuesMapInputTag_);
+  mvaV2IsoValuesMapToken = consumes<edm::ValueMap<float>>(mvaV2IsoValuesMapInputTag_);
+  mvaV2NoIsoValuesMapToken = consumes<edm::ValueMap<float>>(mvaV2NoIsoValuesMapInputTag_);
 
   edm::Service<TFileService> fs;
   reco_tree = fs->make<TTree>("Events", "Events");
@@ -171,8 +175,8 @@ mvaValuesMapInputTag_(iConfig.getParameter<edm::InputTag>("mvaValuesMap"))
   reco_tree->Branch("rho",&rho);
 
   //V2 MVA scores
-  //reco_tree->Branch("ElectronMVAEstimatorRun2Fall17IsoV2Values",&ElectronMVAEstimatorRun2Fall17IsoV2Values);
-  //reco_tree->Branch("ElectronMVAEstimatorRun2Fall17NoIsoV2Values",&ElectronMVAEstimatorRun2Fall17NoIsoV2Values);
+  reco_tree->Branch("ElectronMVAEstimatorRun2Fall17IsoV2Values",&ElectronMVAEstimatorRun2Fall17IsoV2Values);
+  reco_tree->Branch("ElectronMVAEstimatorRun2Fall17NoIsoV2Values",&ElectronMVAEstimatorRun2Fall17NoIsoV2Values);
 
   //electron supercluster variables
 
@@ -266,14 +270,18 @@ void RecoAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSet
   edm::Handle<reco::VertexCollection> VertexHandle;
   iEvent.getByToken(VertexToken, VertexHandle);
 
-  edm::Handle<edm::ValueMap<float> > mvaValues;
-  iEvent.getByToken(mvaValuesMapToken,mvaValues);
+  edm::Handle<edm::ValueMap<float> > mvaV2NoIsoValues;
+  iEvent.getByToken(mvaV2NoIsoValuesMapToken,mvaV2NoIsoValues);
+
+  edm::Handle<edm::ValueMap<float> > mvaV2IsoValues;
+  iEvent.getByToken(mvaV2IsoValuesMapToken,mvaV2IsoValues);
 
   //edm::Handle<edm::View<reco::GsfElectron> > electrons;
   //iEvent.getByToken(electronsToken_, electrons);
-  for (size_t l = 0; l < electrons->size(); ++l){
+
+  /*for (size_t l = 0; l < electrons->size(); ++l){
     const auto el = electrons->ptrAt(l);
-    std::cout << (*mvaValues)[el] << std::endl;}
+    std::cout << (*mvaV2NoIsoValues)[el] << std::endl;}*/
 
   numSC=0;
   numele=0;
@@ -313,6 +321,8 @@ void RecoAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSet
   CutBasedTight.clear();
   trkIsoSC.clear();
   trkIsoEle.clear();
+  ElectronMVAEstimatorRun2Fall17IsoV2Values.clear();
+  ElectronMVAEstimatorRun2Fall17NoIsoV2Values.clear();
   //HcalSum.clear();
 
   tr_pt.clear();
@@ -332,6 +342,8 @@ void RecoAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSet
 
   for (auto el = electrons->begin(); el != electrons->end(); ++el)
   {
+    const auto iter = electrons->ptrAt(numele);
+    //std::cout << (*mvaV2IsoValues)[iter] <<" "<<(*mvaV2NoIsoValues)[iter]<< std::endl;
     std::vector<float> EleTr_separation;
     std::fill(EleTr_separation.begin(), EleTr_separation.end(), 0);
     ele_pt.push_back(el->pt());
@@ -361,6 +373,8 @@ void RecoAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSet
     CutBasedLoose.push_back(CutBasedLooseID(full5x5_sigmaIetaIeta[numele],dEtaSeed[numele],dPhiIn[numele],HoverE[numele],Ep[numele],relIso[numele],ExpMissInnerHits[numele],PassConversionVeto[numele],el->superCluster()->energy(),*(rhoHandle.product()),el->pt(),el->superCluster()->eta()));
     CutBasedMedium.push_back(CutBasedMediumID(full5x5_sigmaIetaIeta[numele],dEtaSeed[numele],dPhiIn[numele],HoverE[numele],Ep[numele],relIso[numele],ExpMissInnerHits[numele],PassConversionVeto[numele],el->superCluster()->energy(),*(rhoHandle.product()),el->pt(),el->superCluster()->eta()));
     CutBasedTight.push_back(CutBasedTightID(full5x5_sigmaIetaIeta[numele],dEtaSeed[numele],dPhiIn[numele],HoverE[numele],Ep[numele],relIso[numele],ExpMissInnerHits[numele],PassConversionVeto[numele],el->superCluster()->energy(),*(rhoHandle.product()),el->pt(),el->superCluster()->eta()));
+    ElectronMVAEstimatorRun2Fall17NoIsoV2Values.push_back((*mvaV2NoIsoValues)[iter]);
+    ElectronMVAEstimatorRun2Fall17IsoV2Values.push_back((*mvaV2IsoValues)[iter]);
     SumPt=0;
     for(auto tr = tkColl->begin(); tr != tkColl->end(); ++tr)
     {
