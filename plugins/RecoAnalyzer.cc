@@ -70,10 +70,6 @@ private:
   edm::EDGetTokenT<reco::SuperClusterCollection> SuperClusterEEToken;
   edm::EDGetTokenT<reco::ConversionCollection> ConversionToken;
   edm::EDGetTokenT<reco::BeamSpot> BeamSpotToken;
-  edm::EDGetTokenT<edm::ValueMap<float> > eleIdLooseToken;
-  edm::EDGetTokenT<edm::ValueMap<float> > eleIdRobustLooseToken;
-  edm::EDGetTokenT<edm::ValueMap<float> > eleIdRobustTightToken;
-  edm::EDGetTokenT<edm::ValueMap<float> > eleIdTightToken;
   edm::EDGetTokenT<double> RhoToken;
   edm::EDGetTokenT<HBHERecHitCollection> hbheRHcToken;
   edm::EDGetTokenT<reco::TrackCollection> TrackToken;
@@ -86,10 +82,6 @@ private:
   edm::InputTag SuperClusterEE_;
   edm::InputTag Conversion_;
   edm::InputTag BeamSpot_;
-  edm::InputTag eleIdLoose_;
-  edm::InputTag eleIdRobustLoose_;
-  edm::InputTag eleIdRobustTight_;
-  edm::InputTag eleIdTight_;
   edm::InputTag Rho_;
   edm::InputTag hcalRecHitsInputHBHE_;
   edm::InputTag TrackInputTag_;
@@ -99,7 +91,7 @@ private:
 
   TTree *reco_tree;
   std::vector<float> ele_pt,ele_eta,ele_phi,full5x5_sigmaIetaIeta,dEtaSeed,dPhiIn,HoverE,relIso,Ep,
-  el_sc_eta, el_sc_E,el_sc_phi,sc_eta, sc_pt, sc_phi, sc_E, eleIdLoose,eleIdTight,eleIdRobustLoose,eleIdRobustTight,trkIsoSC,trkIsoEle,
+  el_sc_eta, el_sc_E,el_sc_phi,sc_eta, sc_pt, sc_phi, sc_E,trkIsoSC,trkIsoEle,
   tr_pt,tr_eta,tr_phi, EleSC_mass,EleTrk_mass,ElectronMVAEstimatorRun2Fall17IsoV2Values,ElectronMVAEstimatorRun2Fall17NoIsoV2Values;
   std::vector<int> ele_charge,SCref,ExpMissInnerHits,EleTRKref;
   std::vector<bool> PassConversionVeto,CutBasedLoose,CutBasedMedium,CutBasedTight;
@@ -119,10 +111,6 @@ SuperClusterEB_(iConfig.getUntrackedParameter<edm::InputTag>("SuperClusterEB")),
 SuperClusterEE_(iConfig.getUntrackedParameter<edm::InputTag>("SuperClusterEE")),
 Conversion_(iConfig.getUntrackedParameter<edm::InputTag>("Conversions")),
 BeamSpot_(iConfig.getUntrackedParameter<edm::InputTag>("BeamSpot")),
-eleIdLoose_(iConfig.getUntrackedParameter<edm::InputTag>("eleIdLoose")),
-eleIdRobustLoose_(iConfig.getUntrackedParameter<edm::InputTag>("eleIdRobustLoose")),
-eleIdRobustTight_(iConfig.getUntrackedParameter<edm::InputTag>("eleIdRobustTight")),
-eleIdTight_(iConfig.getUntrackedParameter<edm::InputTag>("eleIdTight")),
 Rho_(iConfig.getUntrackedParameter<edm::InputTag>("Rho")),
 hcalRecHitsInputHBHE_(iConfig.getUntrackedParameter<edm::InputTag>("HBHERecHit")),
 TrackInputTag_(iConfig.getUntrackedParameter<edm::InputTag>("Track")),
@@ -135,10 +123,6 @@ mvaV2NoIsoValuesMapInputTag_(iConfig.getUntrackedParameter<edm::InputTag>("mvaV2
   SuperClusterEEToken = consumes<reco::SuperClusterCollection>(SuperClusterEE_);
   ConversionToken = consumes<reco::ConversionCollection>(Conversion_);
   BeamSpotToken = consumes<reco::BeamSpot>(BeamSpot_);
-  eleIdLooseToken = consumes<edm::ValueMap<float>>(eleIdLoose_);
-  eleIdRobustLooseToken = consumes<edm::ValueMap<float>>(eleIdRobustLoose_);
-  eleIdRobustTightToken = consumes<edm::ValueMap<float>>(eleIdRobustTight_);
-  eleIdTightToken = consumes<edm::ValueMap<float>>(eleIdTight_);
   RhoToken = consumes<double>(Rho_);
   hbheRHcToken= consumes<HBHERecHitCollection>(hcalRecHitsInputHBHE_);
   TrackToken = consumes<reco::TrackCollection>(TrackInputTag_);
@@ -165,10 +149,6 @@ mvaV2NoIsoValuesMapInputTag_(iConfig.getUntrackedParameter<edm::InputTag>("mvaV2
   reco_tree->Branch("Ep",&Ep);
   reco_tree->Branch("ExpMissInnerHits",&ExpMissInnerHits);
   reco_tree->Branch("PassConversionVeto",&PassConversionVeto);
-  reco_tree->Branch("eleIdLoose",&eleIdLoose);
-  reco_tree->Branch("eleIdTight",&eleIdTight);
-  reco_tree->Branch("eleIdRobustLoose",&eleIdRobustLoose);
-  reco_tree->Branch("eleIdRobustTight",&eleIdRobustTight);
   reco_tree->Branch("CutBasedLoose",&CutBasedLoose);
   reco_tree->Branch("CutBasedMedium",&CutBasedMedium);
   reco_tree->Branch("CutBasedTight",&CutBasedTight);
@@ -246,18 +226,6 @@ void RecoAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSet
   iEvent.getByToken(BeamSpotToken, BeamSpot);
   const reco::BeamSpot &beamspot = *BeamSpot.product();
 
-  edm::Handle<edm::ValueMap<float> > ele_id_decisions_loose;
-  iEvent.getByToken(eleIdLooseToken ,ele_id_decisions_loose);
-
-  edm::Handle<edm::ValueMap<float> > ele_id_decisions_robust_loose;
-  iEvent.getByToken(eleIdRobustLooseToken ,ele_id_decisions_robust_loose);
-
-  edm::Handle<edm::ValueMap<float> > ele_id_decisions_robust_tight;
-  iEvent.getByToken(eleIdRobustTightToken ,ele_id_decisions_robust_tight);
-
-  edm::Handle<edm::ValueMap<float> > ele_id_decisions_tight;
-  iEvent.getByToken(eleIdTightToken ,ele_id_decisions_tight);
-
   edm::Handle<double> rhoHandle;
   iEvent.getByToken(RhoToken, rhoHandle);
 
@@ -312,10 +280,6 @@ void RecoAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSet
   Ep.clear();
   ExpMissInnerHits.clear();
   PassConversionVeto.clear();
-  eleIdLoose.clear();
-  eleIdTight.clear();
-  eleIdRobustLoose.clear();
-  eleIdRobustTight.clear();
   CutBasedLoose.clear();
   CutBasedMedium.clear();
   CutBasedTight.clear();
@@ -366,10 +330,6 @@ void RecoAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSet
     ExpMissInnerHits.push_back(el->gsfTrack()->hitPattern().numberOfLostHits(missingHitType));
     PassConversionVeto.push_back(!ConversionTools::hasMatchedConversion(*el, *hConversions, beamspot.position()));
     const auto ele = electrons->ptrAt(numele);
-    eleIdLoose.push_back((*ele_id_decisions_loose)[ele]);
-    eleIdTight.push_back((*ele_id_decisions_tight)[ele]);
-    eleIdRobustLoose.push_back((*ele_id_decisions_robust_loose)[ele]);
-    eleIdRobustTight.push_back((*ele_id_decisions_robust_tight)[ele]);
     CutBasedLoose.push_back(CutBasedLooseID(full5x5_sigmaIetaIeta[numele],dEtaSeed[numele],dPhiIn[numele],HoverE[numele],Ep[numele],relIso[numele],ExpMissInnerHits[numele],PassConversionVeto[numele],el->superCluster()->energy(),*(rhoHandle.product()),el->pt(),el->superCluster()->eta()));
     CutBasedMedium.push_back(CutBasedMediumID(full5x5_sigmaIetaIeta[numele],dEtaSeed[numele],dPhiIn[numele],HoverE[numele],Ep[numele],relIso[numele],ExpMissInnerHits[numele],PassConversionVeto[numele],el->superCluster()->energy(),*(rhoHandle.product()),el->pt(),el->superCluster()->eta()));
     CutBasedTight.push_back(CutBasedTightID(full5x5_sigmaIetaIeta[numele],dEtaSeed[numele],dPhiIn[numele],HoverE[numele],Ep[numele],relIso[numele],ExpMissInnerHits[numele],PassConversionVeto[numele],el->superCluster()->energy(),*(rhoHandle.product()),el->pt(),el->superCluster()->eta()));
