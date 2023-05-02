@@ -78,6 +78,7 @@ private:
   edm::EDGetTokenT<HBHERecHitCollection> hbheRHcToken;
   edm::EDGetTokenT<reco::TrackCollection> TrackToken;
   edm::EDGetTokenT<reco::VertexCollection> VertexToken;
+  edm::EDGetTokenT<edm::ValueMap<float> > mvaValuesMapToken;
 
   edm::InputTag Electron_;
   edm::InputTag SuperClusterEB_;
@@ -92,14 +93,16 @@ private:
   edm::InputTag hcalRecHitsInputHBHE_;
   edm::InputTag TrackInputTag_;
   edm::InputTag VertexInputTag_;
+  edm::InputTag mvaValuesMapInputTag_;
 
   TTree *reco_tree;
   std::vector<float> ele_pt,ele_eta,ele_phi,full5x5_sigmaIetaIeta,dEtaSeed,dPhiIn,HoverE,relIso,Ep,
-  el_sc_eta, el_sc_E,el_sc_phi,sc_eta, sc_pt, sc_phi, sc_E, eleIdLoose,eleIdTight,eleIdRobustLoose,eleIdRobustTight,trkIsoSC,trkIsoEle;
-  std::vector<int> ele_charge,SCref,ExpMissInnerHits;
+  el_sc_eta, el_sc_E,el_sc_phi,sc_eta, sc_pt, sc_phi, sc_E, eleIdLoose,eleIdTight,eleIdRobustLoose,eleIdRobustTight,trkIsoSC,trkIsoEle,
+  tr_pt,tr_eta,tr_phi, EleSC_mass,EleTrk_mass;
+  std::vector<int> ele_charge,SCref,ExpMissInnerHits,EleTRKref;
   std::vector<bool> PassConversionVeto,CutBasedLoose,CutBasedMedium,CutBasedTight;
-  float EleSC_mass,SCSC_mass,rho;
-  int numele, PFnumele,numSC,EleCounter,match;
+  float rho;
+  int numele, PFnumele,numSC,EleCounter,match,numtr;
   TLorentzVector P,P0,P1,p,p0,p1;
 
   //unsigned long long cachedCaloGeometryID_;
@@ -121,7 +124,8 @@ eleIdTight_(iConfig.getUntrackedParameter<edm::InputTag>("eleIdTight")),
 Rho_(iConfig.getUntrackedParameter<edm::InputTag>("Rho")),
 hcalRecHitsInputHBHE_(iConfig.getUntrackedParameter<edm::InputTag>("HBHERecHit")),
 TrackInputTag_(iConfig.getUntrackedParameter<edm::InputTag>("Track")),
-VertexInputTag_(iConfig.getUntrackedParameter<edm::InputTag>("Vertex"))
+VertexInputTag_(iConfig.getUntrackedParameter<edm::InputTag>("Vertex")),
+mvaValuesMapInputTag_(iConfig.getParameter<edm::InputTag>("mvaValuesMap"))
 {
   electronsToken_    = consumes<edm::View<reco::GsfElectron> >(Electron_);
   SuperClusterEBToken = consumes<reco::SuperClusterCollection>(SuperClusterEB_);
@@ -136,6 +140,7 @@ VertexInputTag_(iConfig.getUntrackedParameter<edm::InputTag>("Vertex"))
   hbheRHcToken= consumes<HBHERecHitCollection>(hcalRecHitsInputHBHE_);
   TrackToken = consumes<reco::TrackCollection>(TrackInputTag_);
   VertexToken = consumes<reco::VertexCollection>(VertexInputTag_);
+  mvaValuesMapToken = consumes<edm::ValueMap<float>>(mvaValuesMapInputTag_);
 
   edm::Service<TFileService> fs;
   reco_tree = fs->make<TTree>("Events", "Events");
@@ -145,7 +150,6 @@ VertexInputTag_(iConfig.getUntrackedParameter<edm::InputTag>("Vertex"))
   reco_tree->Branch("ele_eta",&ele_eta);
   reco_tree->Branch("ele_phi",&ele_phi);
   reco_tree->Branch("EleSC_mass",&EleSC_mass);
-  reco_tree->Branch("SCSC_mass",&SCSC_mass);
 
   reco_tree->Branch("ele_pt",&ele_pt);
   reco_tree->Branch("ele_charge",&ele_charge);
@@ -188,6 +192,13 @@ VertexInputTag_(iConfig.getUntrackedParameter<edm::InputTag>("Vertex"))
   reco_tree->Branch("trkIsoSC",&trkIsoSC);
   reco_tree->Branch("trkIsoEle",&trkIsoEle);
 
+  //Track Info
+  reco_tree->Branch("tr_pt",&tr_pt);
+  reco_tree->Branch("tr_phi",&tr_phi);
+  reco_tree->Branch("tr_eta",&tr_eta);
+  reco_tree->Branch("numtr",&numtr);
+  reco_tree->Branch("EleTRKref",&EleTRKref);
+  reco_tree->Branch("EleTrk_mass",&EleTrk_mass);
   //reco_tree->Branch("HcalSum",&HcalSum);
 
   //cachedCaloGeometryID_ = 0;
@@ -196,6 +207,15 @@ VertexInputTag_(iConfig.getUntrackedParameter<edm::InputTag>("Vertex"))
 
 RecoAnalyzer::~RecoAnalyzer() {
 
+}
+
+float InvariantMass(float pt1,float eta1,float phi1,float pt2,float eta2,float phi2)
+{
+   TLorentzVector P,P1,P2;
+   P1.SetPtEtaPhiM(pt1,eta1,phi1,0);
+   P2.SetPtEtaPhiM(pt2,eta2,phi2,0);
+   P=P1+P2;
+   return P.M();
 }
 
 void RecoAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup) {
@@ -246,12 +266,21 @@ void RecoAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSet
   edm::Handle<reco::VertexCollection> VertexHandle;
   iEvent.getByToken(VertexToken, VertexHandle);
 
+  edm::Handle<edm::ValueMap<float> > mvaValues;
+  iEvent.getByToken(mvaValuesMapToken,mvaValues);
+
+  //edm::Handle<edm::View<reco::GsfElectron> > electrons;
+  //iEvent.getByToken(electronsToken_, electrons);
+  for (size_t l = 0; l < electrons->size(); ++l){
+    const auto el = electrons->ptrAt(l);
+    std::cout << (*mvaValues)[el] << std::endl;}
+
   numSC=0;
   numele=0;
   PFnumele=0;
-  EleSC_mass=0;
-  SCSC_mass=0;
   rho=0;
+
+  EleSC_mass.clear();
   ele_eta.clear();
   ele_phi.clear();
   ele_pt.clear();
@@ -286,13 +315,25 @@ void RecoAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSet
   trkIsoEle.clear();
   //HcalSum.clear();
 
+  tr_pt.clear();
+  tr_eta.clear();
+  tr_phi.clear();
+  EleTRKref.clear();
+  EleTrk_mass.clear();
+  numtr=0;
+
   float SumPt;
+  int i,j,k;
 
   const reco::TrackCollection* tkColl = TrackHandle.product();
   math::XYZPoint pv(VertexHandle->begin()->position());
+  rho = *(rhoHandle.product());
+
 
   for (auto el = electrons->begin(); el != electrons->end(); ++el)
   {
+    std::vector<float> EleTr_separation;
+    std::fill(EleTr_separation.begin(), EleTr_separation.end(), 0);
     ele_pt.push_back(el->pt());
     ele_eta.push_back(el->eta());
     ele_phi.push_back(el->phi());
@@ -323,18 +364,34 @@ void RecoAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSet
     SumPt=0;
     for(auto tr = tkColl->begin(); tr != tkColl->end(); ++tr)
     {
+      if(tr->pt()>5)
+      {
       double dR2 = reco::deltaR2(el->eta(),el->phi(),tr->eta(),tr->phi());
-      //double dz = fabs(tr->dz(pv));
       double dz = fabs(tr->vz()-el->vz());
-      //std::cout<<dz<<std::endl;
       double dEta = fabs(tr->eta()-el->eta());
       double TrackPt = tr->pt();
-      //std::cout<<el->trackPositionAtVtx().z()<<" "<<tr->z()<<std::endl;
-      if(dR2>0 && dR2<0.4 && dz<0.1 && TrackPt>1 && dEta>0.005)
+      if(dR2>0 && dR2<0.4 && dz<0.1 && TrackPt>2 && dEta>0.005)
       SumPt+=TrackPt;
+
+      EleTr_separation.push_back(dR2);
+      //std::cout<<dR2<<" "<<el->eta()<<" "<<el->phi()<<" "<<tr->eta()<<" "<<tr->phi()<<std::endl;
+      }
     }
     trkIsoEle.push_back(SumPt);
     numele++;
+
+    auto tmp = std::min_element(std::begin(EleTr_separation), std::end(EleTr_separation));
+    int index = std::distance(std::begin(EleTr_separation),tmp);
+
+    if(EleTr_separation.size()>0)
+    {
+      if(*tmp<0.05)
+      EleTRKref.push_back(index);
+      else
+      EleTRKref.push_back(99);
+      //std::cout<<index<<std::endl;
+    }
+
   }
 
   //float Sum;
@@ -355,7 +412,7 @@ void RecoAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSet
     {
       double dR2 = reco::deltaR2(sc->eta(),sc->phi(),tr->eta(),tr->phi());
       double TrackPt = tr->pt();
-      if(dR2>0 && dR2<0.4 && TrackPt>1)
+      if(dR2>0 && dR2<0.4 && TrackPt>2)
       SumPt+=TrackPt;
     }
 
@@ -397,7 +454,7 @@ void RecoAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSet
     {
       double dR2 = reco::deltaR2(sc->eta(),sc->phi(),tr->eta(),tr->phi());
       double TrackPt = tr->pt();
-      if(dR2>0 && dR2<0.4 && TrackPt>1)
+      if(dR2>0 && dR2<0.4 && TrackPt>2)
       SumPt+=TrackPt;
     }
 
@@ -420,7 +477,7 @@ void RecoAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSet
     numSC++;
   }
 
-  rho = *(rhoHandle.product());
+
   //const HBHERecHitCollection* hithbhe_ = hcalRecHitsHandle.product();
 
   //typename HBHERecHitCollection::const_iterator i = HBHEhits->begin();
@@ -431,24 +488,65 @@ void RecoAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSet
     std::cout<<phit.eta()<<std::endl;
   }*/
 
+
+  for(auto tr = tkColl->begin(); tr != tkColl->end(); ++tr)
+  {
+    //track electron matching
+    if(tr->pt()>5)
+    {
+    tr_pt.push_back(tr->pt());
+    tr_eta.push_back(tr->eta());
+    tr_phi.push_back(tr->phi());
+    numtr++;
+    }
+  }
+
   //HoECalculator hoeCalc(caloGeometry_);
 
-   //if((numele==1 && numSC==2) || (numele==2 && numSC==2 && ele_charge[0]==-1*ele_charge[1]))
-  if((numele==1 && numSC==2 && ele_pt[0]>5 && sc_pt[0]>5 && sc_pt[1]>5) || (numele==2 && numSC==2 && ele_pt[0]>5 && ele_pt[1]>5 && sc_pt[0]>5 && sc_pt[1]>5 && ele_charge[0]==-1*ele_charge[1]))
-    //if(numele==1 && numSC==2 && ele_pt[0]>5 && sc_pt[0]>5 && sc_pt[1]>5)
+  int PassSCcut=0,PassElecut=0;
+
+  if(numele==1 || (numele==2 && ele_charge[0]==-1*ele_charge[1]))
   {
-    P0.SetPtEtaPhiM(ele_pt[0],ele_eta[0],ele_phi[0],0);
-    if(SCref[0]==0)
-    P1.SetPtEtaPhiM(sc_pt[1],sc_eta[1],sc_phi[1],0);
-    else if(SCref[0]==1 || SCref[0]==99)
-    P1.SetPtEtaPhiM(sc_pt[0],sc_eta[0],sc_phi[0],0);
-    P=P0+P1;
-    EleSC_mass=P.M();
-    p0.SetPtEtaPhiM(sc_pt[0],sc_eta[0],sc_phi[0],0);
-    p1.SetPtEtaPhiM(sc_pt[1],sc_eta[1],sc_phi[1],0);
-    p=p0+p1;
-    SCSC_mass=p.M();
+    for(i=0;i<numele;i++)
+    {
+      if(ele_pt[i]>5)
+      PassElecut++;
+      for(j=0;j<numSC;j++)
+      {
+        if(SCref[j]==99)
+        EleSC_mass.push_back(InvariantMass(ele_pt[i],ele_eta[i],ele_phi[i],sc_pt[j],sc_eta[j],sc_phi[j]));
+        if(sc_pt[j]>5)
+        PassSCcut++;
+      }
+      /*for(k=0;k<numtr;k++)
+      {
+        if(EleTRKref[i]!=k) //trk not matched el
+        EleTrk_mass.push_back(InvariantMass(ele_pt[i],ele_eta[i],ele_phi[i],tr_pt[k],tr_eta[k],tr_phi[k]));
+      }*/
+    }
+    for(k=0;k<numtr;k++)
+    {
+      if(numele==1)
+      {
+        if(EleTRKref[0]!=k) //trk not matched el
+        EleTrk_mass.push_back(InvariantMass(ele_pt[0],ele_eta[0],ele_phi[0],tr_pt[k],tr_eta[k],tr_phi[k]));
+      }
+      if(numele==2)
+      {
+        if(EleTRKref[0]!=k && EleTRKref[1]!=k) //trk not matched el
+        {
+          EleTrk_mass.push_back(InvariantMass(ele_pt[0],ele_eta[0],ele_phi[0],tr_pt[k],tr_eta[k],tr_phi[k]));
+          EleTrk_mass.push_back(InvariantMass(ele_pt[1],ele_eta[1],ele_phi[1],tr_pt[k],tr_eta[k],tr_phi[k]));
+        }
+      }
+    }
+
+    bool NotMatchedTrack = std::all_of(EleTRKref.cbegin(), EleTRKref.cend(), [](int TRreference){ return TRreference==99; });
+    bool NotMatchedSC = std::all_of(SCref.cbegin(), SCref.cend(), [](int SCreference){ return SCreference==99; });
+
+    if(PassSCcut==numSC*numele && PassElecut==numele && !NotMatchedTrack && !NotMatchedSC) //dont save the event if electron has 0 matchs with tracks and SCs
     reco_tree->Fill();
+
   }
 
 }
