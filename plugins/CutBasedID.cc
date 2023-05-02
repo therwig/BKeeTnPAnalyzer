@@ -4,7 +4,7 @@ bool CutBasedLooseID(float full5x5_sigmaIetaIeta,float dEtaSeed,float dPhiIn, fl
 {
   if(std::abs(eta_SC)<=1.479)
   {
-    if(full5x5_sigmaIetaIeta<0.0112 && std::abs(dEtaSeed)<0.00377 && std::abs(dPhiIn)<0.0884 && HoverE<0.05+1.16/E_SC+0.0324*rho/E_SC,relIso<0.112+0.506/pT
+    if(full5x5_sigmaIetaIeta<0.0112 && std::abs(dEtaSeed)<0.00377 && std::abs(dPhiIn)<0.0884 && HoverE<0.05+1.16/E_SC+0.0324*rho/E_SC
        && std::abs(Ep)<0.193 && ExpMissInnerHits<=1 && PassConversionVeto)
        return 1;
     else
@@ -12,7 +12,7 @@ bool CutBasedLooseID(float full5x5_sigmaIetaIeta,float dEtaSeed,float dPhiIn, fl
   }
   else
   {
-    if(full5x5_sigmaIetaIeta<0.0425 && std::abs(dEtaSeed)<0.00674 && std::abs(dPhiIn)<0.169 && HoverE<0.0441+2.54/E_SC+0.183*rho/E_SC,relIso<0.108+0.963/pT
+    if(full5x5_sigmaIetaIeta<0.0425 && std::abs(dEtaSeed)<0.00674 && std::abs(dPhiIn)<0.169 && HoverE<0.0441+2.54/E_SC+0.183*rho/E_SC
        && std::abs(Ep)<0.111 && ExpMissInnerHits<=1 && PassConversionVeto)
        return 1;
     else
