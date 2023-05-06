@@ -10,16 +10,16 @@ process.load('Configuration.StandardSequences.FrontierConditions_GlobalTag_cff')
 
 process.GlobalTag.globaltag = '106X_dataRun2_v35'
 
-process.maxEvents = cms.untracked.PSet( input = cms.untracked.int32(100))
-process.MessageLogger.cerr.FwkReport.reportEvery = 100000
+process.maxEvents = cms.untracked.PSet( input = cms.untracked.int32(-1))
+process.MessageLogger.cerr.FwkReport.reportEvery = 1
 
-process.source = cms.Source("PoolSource",fileNames = cms.untracked.vstring('file:../TestFiles/013C3F9A-271C-A644-B39D-2FD1E9CA9A60.root'))
+process.source = cms.Source("PoolSource",fileNames = cms.untracked.vstring())
 
 process.trigger = cms.EDAnalyzer('TriggerAnalyzer',
                               bits = cms.InputTag("TriggerResults","","HLT")
                               )
 
-process.reco = cms.EDAnalyzer('RecoAnalyzer',
+process.reco = cms.EDAnalyzer('RecoAnalyzerV2',
    Electron = cms.untracked.InputTag("gedGsfElectrons"),
    SuperClusterEB = cms.untracked.InputTag("particleFlowSuperClusterECAL","particleFlowSuperClusterECALBarrel"),
    SuperClusterEE = cms.untracked.InputTag("particleFlowSuperClusterECAL","particleFlowSuperClusterECALEndcapWithPreshower"),
