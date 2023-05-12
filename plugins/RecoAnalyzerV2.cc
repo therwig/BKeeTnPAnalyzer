@@ -85,6 +85,7 @@ private:
   edm::EDGetTokenT<edm::ValueMap<float> > mvaV2IsoValuesMapToken;
   edm::EDGetTokenT<edm::ValueMap<float> > mvaV2NoIsoValuesMapToken;
   edm::EDGetTokenT<reco::GsfTrackCollection> GsfTrackToken;
+  edm::EDGetTokenT<reco::VertexCollection> SecondaryVertexToken;
 
   edm::InputTag Electron_;
   edm::InputTag SuperClusterEB_;
@@ -98,12 +99,13 @@ private:
   edm::InputTag mvaV2IsoValuesMapInputTag_;
   edm::InputTag mvaV2NoIsoValuesMapInputTag_;
   edm::InputTag GsfTrackInputTag_;
+  edm::InputTag SecondaryVertexInputTag_;
 
   TTree *reco_tree;
   std::vector<float> ele_pt,ele_eta,ele_phi,full5x5_sigmaIetaIeta,dEtaSeed,dPhiIn,HoverE,relIso,Ep,
   el_sc_eta, el_sc_E,el_sc_phi,sc_eta, sc_pt, sc_phi, sc_E,trkIsoSC,trkIsoEle,EleClosestTrackPt,
   tr_pt,tr_eta,tr_phi,ElectronMVAEstimatorRun2Fall17IsoV2Values,ElectronMVAEstimatorRun2Fall17NoIsoV2Values,
-  ele_z,ele_x,ele_y,tr_z,tr_x,tr_y,tr_charge,gsf_z,gsf_x,gsf_y;
+  ele_z,ele_x,ele_y,tr_z,tr_x,tr_y,tr_charge,gsf_z,gsf_x,gsf_y, sv_x, sv_y, sv_z,sv_chi2,sv_ndof;
   std::vector<int> ele_charge,ExpMissInnerHits,EleTRKref,EleTrkIsNoNull,ele_gsf_charge,gsf_charge;
   std::vector<bool> PassConversionVeto,CutBasedLoose,CutBasedMedium,CutBasedTight;
   float rho;
@@ -128,7 +130,8 @@ TrackInputTag_(iConfig.getUntrackedParameter<edm::InputTag>("Track")),
 VertexInputTag_(iConfig.getUntrackedParameter<edm::InputTag>("Vertex")),
 mvaV2IsoValuesMapInputTag_(iConfig.getUntrackedParameter<edm::InputTag>("mvaV2IsoValuesMap")),
 mvaV2NoIsoValuesMapInputTag_(iConfig.getUntrackedParameter<edm::InputTag>("mvaV2NoIsoValuesMap")),
-GsfTrackInputTag_(iConfig.getUntrackedParameter<edm::InputTag>("GsfTrack"))
+GsfTrackInputTag_(iConfig.getUntrackedParameter<edm::InputTag>("GsfTrack")),
+SecondaryVertexInputTag_(iConfig.getUntrackedParameter<edm::InputTag>("secondaryVertices"))
 {
   electronsToken_    = consumes<edm::View<reco::GsfElectron> >(Electron_);
   SuperClusterEBToken = consumes<reco::SuperClusterCollection>(SuperClusterEB_);
@@ -142,6 +145,7 @@ GsfTrackInputTag_(iConfig.getUntrackedParameter<edm::InputTag>("GsfTrack"))
   mvaV2IsoValuesMapToken = consumes<edm::ValueMap<float>>(mvaV2IsoValuesMapInputTag_);
   mvaV2NoIsoValuesMapToken = consumes<edm::ValueMap<float>>(mvaV2NoIsoValuesMapInputTag_);
   GsfTrackToken = consumes<reco::GsfTrackCollection>(GsfTrackInputTag_);
+  SecondaryVertexToken = consumes<reco::VertexCollection>(SecondaryVertexInputTag_);
 
   edm::Service<TFileService> fs;
   reco_tree = fs->make<TTree>("Events", "Events");
@@ -210,6 +214,13 @@ GsfTrackInputTag_(iConfig.getUntrackedParameter<edm::InputTag>("GsfTrack"))
   reco_tree->Branch("gsf_z",&gsf_z);
   reco_tree->Branch("gsf_charge",&gsf_charge);
 
+  //Secondary Vertex
+  reco_tree->Branch("sv_x",&sv_x);
+  reco_tree->Branch("sv_y",&sv_y);
+  reco_tree->Branch("sv_z",&sv_z);
+  reco_tree->Branch("sv_chi2",&sv_chi2);
+  reco_tree->Branch("sv_ndof",&sv_ndof);
+
 }
 
 RecoAnalyzerV2::~RecoAnalyzerV2() {
@@ -270,6 +281,8 @@ void RecoAnalyzerV2::analyze(const edm::Event& iEvent, const edm::EventSetup& iS
   edm::Handle<reco::GsfTrackCollection> GsfTrackHandle;
   iEvent.getByToken(GsfTrackToken,GsfTrackHandle);
 
+  edm::Handle<reco::VertexCollection> secondaryVertexHandle;
+  iEvent.getByToken(SecondaryVertexToken,secondaryVertexHandle);
 
   //edm::Handle<edm::View<reco::GsfElectron> > electrons;
   //iEvent.getByToken(electronsToken_, electrons);
@@ -334,6 +347,12 @@ void RecoAnalyzerV2::analyze(const edm::Event& iEvent, const edm::EventSetup& iS
   gsf_charge.clear();
   numgsf=0;
 
+  sv_x.clear();
+  sv_y.clear();
+  sv_z.clear();
+  sv_chi2.clear();
+  sv_ndof.clear();
+
   //helper variables
   float SumPt,TrackPtHelper=0.;
   int t,index,num5,TrackIndexHelper;
@@ -354,6 +373,15 @@ void RecoAnalyzerV2::analyze(const edm::Event& iEvent, const edm::EventSetup& iS
       num++;
     }
   }*/
+
+  for(auto sv = secondaryVertexHandle->begin(); sv!= secondaryVertexHandle->end(); ++sv)
+  {
+    sv_x.push_back(sv->x());
+    sv_y.push_back(sv->y());
+    sv_z.push_back(sv->z());
+    sv_chi2.push_back(sv->chi2());
+    sv_ndof.push_back(sv->ndof());
+  }
 
   for(auto gsf = GsfTrackHandle->begin(); gsf!= GsfTrackHandle->end(); ++gsf)
   {
@@ -494,12 +522,7 @@ void RecoAnalyzerV2::analyze(const edm::Event& iEvent, const edm::EventSetup& iS
       EleClosestTrackPt.push_back(TrackPtHelper);
       numele++;
     }
-    //reco::TrackRef myTrackRef = el->closestCtfTrackRef();
-    //std::cout<<myTrackRef->normalizedChi2()<<std::endl;
 
-    //std::cout<<el->charge()<<std::endl;
-    //std::cout<<el->gsfTrack()->charge()<<std::endl;
-    //std::cout<<el->vx()<<std::endl;
   }
 
 
