@@ -92,12 +92,11 @@ private:
   TTree *reco_tree;
   std::vector<float> ele_pt,ele_eta,ele_phi,trkIsoEle,EleClosestTrackPt,
   tr_pt,tr_eta,tr_phi,ElectronMVAEstimatorRun2Fall17IsoV2Values,ElectronMVAEstimatorRun2Fall17NoIsoV2Values,
-  ele_z,ele_x,ele_y,tr_z,tr_x,tr_y,gsf_z,gsf_x,gsf_y, sv_x, sv_y, sv_z,sv_chi2,sv_ndof,gsf_pt,gsf_eta,gsf_phi,
-  sv_tr_pt, sv_tr_eta, sv_tr_phi,SV3pt,SV3eta,SV3phi,SV3charge,SV3mass,SVdistanceToMaxPtPV,SV3x,SV3y,SV3z;
+  ele_z,ele_x,ele_y,tr_z,tr_x,tr_y,gsf_z,gsf_x,gsf_y,SVchi2,SVndof,gsf_pt,gsf_eta,gsf_phi,
+  SVpt,SVeta,SVphi,SVcharge,SVmass,SVdistanceToMaxPtPV,SVx,SVy,SVz;
   std::vector<int> ele_charge,EleTRKref,EleTrkIsNoNull,ele_gsf_charge,gsf_charge,tr_charge,
-  sv_tr_size,EleSV3trkref,SV3TrEleRef;
-  int numele, PFnumele,EleCounter,match,numtr,numgsf,numsv,numsv3;
-  TLorentzVector P,P0,P1,p,p0,p1;
+  sv_tr_size,EleSVtrkref,SVTrEleRef,SVsize,SVchargeSum;
+  int numele, PFnumele,EleCounter,match,numtr,numgsf,numsv;
   float PVmaxPtX,PVmaxPtY,PVmaxPtZ;
 
   //unsigned long long cachedCaloGeometryID_;
@@ -166,28 +165,23 @@ PrimaryVertexInputTag_(iConfig.getUntrackedParameter<edm::InputTag>("primaryVert
   reco_tree->Branch("gsf_phi",&gsf_phi);
 
   //Secondary Vertex
-  reco_tree->Branch("sv_x",&sv_x);
-  reco_tree->Branch("sv_y",&sv_y);
-  reco_tree->Branch("sv_z",&sv_z);
-  reco_tree->Branch("sv_chi2",&sv_chi2);
-  reco_tree->Branch("sv_ndof",&sv_ndof);
-  reco_tree->Branch("sv_tr_size",&sv_tr_size);
-  reco_tree->Branch("sv_tr_pt",&sv_tr_pt);
-  reco_tree->Branch("sv_tr_eta",&sv_tr_eta);
-  reco_tree->Branch("sv_tr_phi",&sv_tr_phi);
+  reco_tree->Branch("SVchi2",&SVchi2);
+  reco_tree->Branch("SVndof",&SVndof);
   reco_tree->Branch("numsv",&numsv);
-  reco_tree->Branch("SV3pt",&SV3pt);
-  reco_tree->Branch("SV3phi",&SV3phi);
-  reco_tree->Branch("SV3eta",&SV3eta);
-  reco_tree->Branch("EleSV3trkref",&EleSV3trkref);
-  reco_tree->Branch("SV3TrEleRef",&SV3TrEleRef);
-  reco_tree->Branch("SV3charge",&SV3charge);
-  reco_tree->Branch("SV3mass",&SV3mass);
-  reco_tree->Branch("numsv3",&numsv3);
+  reco_tree->Branch("SVpt",&SVpt);
+  reco_tree->Branch("SVphi",&SVphi);
+  reco_tree->Branch("SVeta",&SVeta);
+  reco_tree->Branch("EleSVtrkref",&EleSVtrkref);
+  reco_tree->Branch("SVTrEleRef",&SVTrEleRef);
+  reco_tree->Branch("SVcharge",&SVcharge);
+  reco_tree->Branch("SVmass",&SVmass);
+  reco_tree->Branch("numsv",&numsv);
   reco_tree->Branch("SVdistanceToMaxPtPV",&SVdistanceToMaxPtPV);
-  reco_tree->Branch("SV3x",&SV3x);
-  reco_tree->Branch("SV3y",&SV3y);
-  reco_tree->Branch("SV3z",&SV3z);
+  reco_tree->Branch("SVx",&SVx);
+  reco_tree->Branch("SVy",&SVy);
+  reco_tree->Branch("SVz",&SVz);
+  reco_tree->Branch("SVsize",&SVsize);
+  reco_tree->Branch("SVchargeSum",&SVchargeSum);
 
   //PrimaryVertex
   reco_tree->Branch("PVmaxPtX",&PVmaxPtX);
@@ -200,14 +194,6 @@ RecoAnalyzerV2::~RecoAnalyzerV2() {
 
 }
 
-/*float InvariantMass(float pt1,float eta1,float phi1,float pt2,float eta2,float phi2)
-{
-   TLorentzVector P,P1,P2;
-   P1.SetPtEtaPhiM(pt1,eta1,phi1,0);
-   P2.SetPtEtaPhiM(pt2,eta2,phi2,0);
-   P=P1+P2;
-   return P.M();
-}*/
 
 void RecoAnalyzerV2::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup) {
   using namespace edm;
@@ -284,28 +270,23 @@ void RecoAnalyzerV2::analyze(const edm::Event& iEvent, const edm::EventSetup& iS
   gsf_phi.clear();
   numgsf=0;
 
-  sv_x.clear();
-  sv_y.clear();
-  sv_z.clear();
-  sv_chi2.clear();
-  sv_ndof.clear();
-  sv_tr_size.clear();
-  sv_tr_pt.clear();
-  sv_tr_eta.clear();
-  sv_tr_phi.clear();
-  SV3pt.clear();
-  SV3phi.clear();
-  SV3eta.clear();
-  EleSV3trkref.clear();
-  SV3TrEleRef.clear();
-  SV3charge.clear();
-  SV3mass.clear();
+  SVchi2.clear();
+  SVndof.clear();
+  SVpt.clear();
+  SVphi.clear();
+  SVeta.clear();
+  EleSVtrkref.clear();
+  SVTrEleRef.clear();
+  SVcharge.clear();
+  SVmass.clear();
   numsv=0;
-  numsv3=0;
+  numsv=0;
   SVdistanceToMaxPtPV.clear();
-  SV3x.clear();
-  SV3y.clear();
-  SV3z.clear();
+  SVx.clear();
+  SVy.clear();
+  SVz.clear();
+  SVsize.clear();
+  SVchargeSum.clear();
 
   PVmaxPtX=0;
   PVmaxPtY=0;
@@ -313,8 +294,8 @@ void RecoAnalyzerV2::analyze(const edm::Event& iEvent, const edm::EventSetup& iS
 
   //helper variables
   float SumPt,TrackPtHelper=0.;
-  int index,num5,TrackIndexHelper;
-  TLorentzVector P,P1,P2,P3;
+  int index,num5,TrackIndexHelper,ChargeHelper;
+  TLorentzVector P_sum,P_tmp;
   std::vector<float> PVptSum;
 
   const reco::TrackCollection* tkColl = TrackHandle.product();
@@ -339,27 +320,34 @@ void RecoAnalyzerV2::analyze(const edm::Event& iEvent, const edm::EventSetup& iS
 
   for(auto sv = secondaryVertexHandle->begin(); sv!= secondaryVertexHandle->end(); ++sv)
   {
-    if(sv->tracksSize()==3 && std::fabs(sv->trackRefAt(0)->charge()+sv->trackRefAt(1)->charge()+sv->trackRefAt(2)->charge())==1)
-    {
+      ChargeHelper=0.;
+      P_sum.SetPtEtaPhiM(0.,0.,0.,0.);
+      int SVtrackSize = 0;
       for(long unsigned int r=0;r<sv->tracksSize();r++)
       {
-        SV3pt.push_back(sv->trackRefAt(r)->pt());
-        SV3eta.push_back(sv->trackRefAt(r)->eta());
-        SV3phi.push_back(sv->trackRefAt(r)->phi());
-        SV3charge.push_back(sv->trackRefAt(r)->charge());
+        if(sv->trackRefAt(r)->pt()>0.7)
+        {
+          SVpt.push_back(sv->trackRefAt(r)->pt());
+          SVeta.push_back(sv->trackRefAt(r)->eta());
+          SVphi.push_back(sv->trackRefAt(r)->phi());
+          SVcharge.push_back(sv->trackRefAt(r)->charge());
+          ChargeHelper+=sv->trackRefAt(r)->charge();
+          P_tmp.SetPtEtaPhiM(sv->trackRefAt(r)->pt(),sv->trackRefAt(r)->eta(),sv->trackRefAt(r)->phi(),0.);
+          P_sum+=P_tmp;
+          SVtrackSize++;
+        }
       }
-      SV3x.push_back(sv->x());
-      SV3y.push_back(sv->y());
-      SV3z.push_back(sv->z());
-      P1.SetPtEtaPhiM(SV3pt.at(0),SV3eta.at(0),SV3phi.at(0),0.);
-      P2.SetPtEtaPhiM(SV3pt.at(1),SV3eta.at(1),SV3phi.at(1),0.);
-      P3.SetPtEtaPhiM(SV3pt.at(2),SV3eta.at(2),SV3phi.at(2),0.);
-      P=P1+P2+P3;
-      SV3mass.push_back(P.M());
+      SVchi2.push_back(sv->chi2());
+      SVndof.push_back(sv->ndof());
+      SVx.push_back(sv->x());
+      SVy.push_back(sv->y());
+      SVz.push_back(sv->z());
+      SVmass.push_back(P_sum.M());
+      SVchargeSum.push_back(ChargeHelper);
+      SVsize.push_back(SVtrackSize);
       SVdistanceToMaxPtPV.push_back(sqrt((sv->x()-PVmaxPtX)*(sv->x()-PVmaxPtX)+(sv->y()-PVmaxPtY)*(sv->y()-PVmaxPtY)+
                                     (sv->z()-PVmaxPtZ)*(sv->z()-PVmaxPtZ)));
-      numsv3++;
-    }
+      numsv++;
   }
 
 
@@ -370,21 +358,21 @@ void RecoAnalyzerV2::analyze(const edm::Event& iEvent, const edm::EventSetup& iS
     {
       auto ClosestTrackRef = tkColl->begin() + el->closestCtfTrackRef().index();
       int FoundSVmatch=0;
-      for(long unsigned int b=0; b<SV3pt.size(); b++)
+      for(long unsigned int b=0; b<SVpt.size(); b++)
       {
-        if((float)ClosestTrackRef->pt()==SV3pt.at(b) && (float)ClosestTrackRef->eta()==SV3eta.at(b) && (float)ClosestTrackRef->phi()==SV3phi.at(b))
+        if((float)ClosestTrackRef->pt()==SVpt.at(b) && (float)ClosestTrackRef->eta()==SVeta.at(b) && (float)ClosestTrackRef->phi()==SVphi.at(b))
         {
-          EleSV3trkref.push_back(b);
+          EleSVtrkref.push_back(b);
           FoundSVmatch=1;
         }
       }
       if(FoundSVmatch==0)
-      EleSV3trkref.push_back(99);
+      EleSVtrkref.push_back(99);
     }
     else if(el->pt()>5.)
-    EleSV3trkref.push_back(99);
+    EleSVtrkref.push_back(99);
 
-    if(el->pt()>5)
+    if(el->pt()>5.)
     {
       const auto iter = electrons->ptrAt(numele);
       ele_pt.push_back(el->pt());
@@ -432,45 +420,17 @@ void RecoAnalyzerV2::analyze(const edm::Event& iEvent, const edm::EventSetup& iS
     }
   }
 
-  for(long unsigned int b=0; b<SV3pt.size();b++)
+  for(long unsigned int b=0; b<SVpt.size();b++)
   {
-    int RefSV3toEl=99;
-    for(long unsigned c=0; c<EleSV3trkref.size();c++)
+    int RefSVtoEl=99;
+    for(long unsigned c=0; c<EleSVtrkref.size();c++)
     {
-      if(EleSV3trkref.at(c)==(int)b)
-      RefSV3toEl=c;
+      if(EleSVtrkref.at(c)==(int)b)
+      RefSVtoEl=c;
     }
-    SV3TrEleRef.push_back(RefSV3toEl);
+    SVTrEleRef.push_back(RefSVtoEl);
   }
 
-
-  for(auto sv = secondaryVertexHandle->begin(); sv!= secondaryVertexHandle->end(); ++sv)
-  {
-    sv_x.push_back(sv->x());
-    sv_y.push_back(sv->y());
-    sv_z.push_back(sv->z());
-    sv_chi2.push_back(sv->chi2());
-    sv_ndof.push_back(sv->ndof());
-    sv_tr_size.push_back(sv->tracksSize());
-    for(long unsigned int r=0;r<sv->tracksSize();r++)
-    {
-      sv_tr_pt.push_back(sv->trackRefAt(r)->pt());
-      sv_tr_eta.push_back(sv->trackRefAt(r)->eta());
-      sv_tr_phi.push_back(sv->trackRefAt(r)->phi());
-    }
-    if(sv->tracksSize()==3)
-    {
-      for(long unsigned int s=0;s<sv->tracksSize();s++)
-      {
-        SV3pt.push_back(sv->trackRefAt(s)->pt());
-        SV3eta.push_back(sv->trackRefAt(s)->eta());
-        SV3phi.push_back(sv->trackRefAt(s)->phi());
-      }
-    }
-    numsv++;
-    //const auto &ref = sv->trackRefAt(0);
-    //std::cout<<sv->tracksSize()<<" "<<ref->pt()<<std::endl;
-  }
 
   for(auto gsf = GsfTrackHandle->begin(); gsf!= GsfTrackHandle->end(); ++gsf)
   {
@@ -495,9 +455,7 @@ void RecoAnalyzerV2::analyze(const edm::Event& iEvent, const edm::EventSetup& iS
     tr_y.push_back(tr->vy());
     tr_z.push_back(tr->vz());
     tr_charge.push_back(tr->charge());
-    //std::cout<<tr->normalizedChi2()<<std::endl;
     numtr++;
-    //std::cout<<tr->charge()<<std::endl;
     }
   }
 
