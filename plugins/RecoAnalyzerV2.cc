@@ -93,9 +93,9 @@ private:
   std::vector<float> ele_pt,ele_eta,ele_phi,trkIsoEle,EleClosestTrackPt,
   tr_pt,tr_eta,tr_phi,ElectronMVAEstimatorRun2Fall17IsoV2Values,ElectronMVAEstimatorRun2Fall17NoIsoV2Values,
   ele_z,ele_x,ele_y,tr_z,tr_x,tr_y,gsf_z,gsf_x,gsf_y, sv_x, sv_y, sv_z,sv_chi2,sv_ndof,gsf_pt,gsf_eta,gsf_phi,
-  sv_tr_pt, sv_tr_eta, sv_tr_phi,SV3pt,SV3eta,SV3phi,SV3charge,SVmass,SVdistanceToMaxPtPV,SV3x,SV3y,SV3z;
+  sv_tr_pt, sv_tr_eta, sv_tr_phi,SV3pt,SV3eta,SV3phi,SV3charge,SV3mass,SVdistanceToMaxPtPV,SV3x,SV3y,SV3z;
   std::vector<int> ele_charge,EleTRKref,EleTrkIsNoNull,ele_gsf_charge,gsf_charge,tr_charge,
-  sv_tr_size,EleSVtrkref,SV3TrEleRef;
+  sv_tr_size,EleSV3trkref,SV3TrEleRef;
   int numele, PFnumele,EleCounter,match,numtr,numgsf,numsv,numsv3;
   TLorentzVector P,P0,P1,p,p0,p1;
   float PVmaxPtX,PVmaxPtY,PVmaxPtZ;
@@ -179,10 +179,10 @@ PrimaryVertexInputTag_(iConfig.getUntrackedParameter<edm::InputTag>("primaryVert
   reco_tree->Branch("SV3pt",&SV3pt);
   reco_tree->Branch("SV3phi",&SV3phi);
   reco_tree->Branch("SV3eta",&SV3eta);
-  reco_tree->Branch("EleSVtrkref",&EleSVtrkref);
+  reco_tree->Branch("EleSV3trkref",&EleSV3trkref);
   reco_tree->Branch("SV3TrEleRef",&SV3TrEleRef);
   reco_tree->Branch("SV3charge",&SV3charge);
-  reco_tree->Branch("SVmass",&SVmass);
+  reco_tree->Branch("SV3mass",&SV3mass);
   reco_tree->Branch("numsv3",&numsv3);
   reco_tree->Branch("SVdistanceToMaxPtPV",&SVdistanceToMaxPtPV);
   reco_tree->Branch("SV3x",&SV3x);
@@ -296,10 +296,10 @@ void RecoAnalyzerV2::analyze(const edm::Event& iEvent, const edm::EventSetup& iS
   SV3pt.clear();
   SV3phi.clear();
   SV3eta.clear();
-  EleSVtrkref.clear();
+  EleSV3trkref.clear();
   SV3TrEleRef.clear();
   SV3charge.clear();
-  SVmass.clear();
+  SV3mass.clear();
   numsv=0;
   numsv3=0;
   SVdistanceToMaxPtPV.clear();
@@ -312,26 +312,13 @@ void RecoAnalyzerV2::analyze(const edm::Event& iEvent, const edm::EventSetup& iS
   PVmaxPtZ=0;
 
   //helper variables
-  float SumPt,TrackPtHelper=0.,TmpPt,TmpPhi,TmpEta;
+  float SumPt,TrackPtHelper=0.;
   int index,num5,TrackIndexHelper;
   TLorentzVector P,P1,P2,P3;
   std::vector<float> PVptSum;
 
   const reco::TrackCollection* tkColl = TrackHandle.product();
   math::XYZPoint pv(primaryVertexHandle->begin()->position());
-
-  //Test closest track
-  /*for (auto el = electrons->begin(); el != electrons->end(); ++el)
-  {
-    unsigned int num=0;
-    if(el->closestCtfTrackRef().isNonnull())
-    for(auto tr = tkColl->begin(); tr != tkColl->end(); ++tr)
-    {
-      if(el->closestCtfTrackRef().index()==num)
-      std::cout<<el->pt()<<" "<<el->eta()<<" "<<el->phi()<<" "<<tr->pt()<<" "<<tr->eta()<<" "<<tr->phi()<<std::endl;
-      num++;
-    }
-  }*/
 
   PVptSum.clear();
   for(auto pv = primaryVertexHandle->begin(); pv!= primaryVertexHandle->end(); ++pv)
@@ -349,8 +336,6 @@ void RecoAnalyzerV2::analyze(const edm::Event& iEvent, const edm::EventSetup& iS
   PVmaxPtY = MaxPtIndex->y();
   PVmaxPtZ = MaxPtIndex->z();
 
-  //Testing grounds
-  ///////////////////////////////////////////////
 
   for(auto sv = secondaryVertexHandle->begin(); sv!= secondaryVertexHandle->end(); ++sv)
   {
@@ -370,7 +355,7 @@ void RecoAnalyzerV2::analyze(const edm::Event& iEvent, const edm::EventSetup& iS
       P2.SetPtEtaPhiM(SV3pt.at(1),SV3eta.at(1),SV3phi.at(1),0.);
       P3.SetPtEtaPhiM(SV3pt.at(2),SV3eta.at(2),SV3phi.at(2),0.);
       P=P1+P2+P3;
-      SVmass.push_back(P.M());
+      SV3mass.push_back(P.M());
       SVdistanceToMaxPtPV.push_back(sqrt((sv->x()-PVmaxPtX)*(sv->x()-PVmaxPtX)+(sv->y()-PVmaxPtY)*(sv->y()-PVmaxPtY)+
                                     (sv->z()-PVmaxPtZ)*(sv->z()-PVmaxPtZ)));
       numsv3++;
@@ -380,42 +365,79 @@ void RecoAnalyzerV2::analyze(const edm::Event& iEvent, const edm::EventSetup& iS
 
   for(auto el = electrons->begin(); el != electrons->end(); ++el)
   {
+
     if(el->closestCtfTrackRef().isNonnull() && el->pt()>5.)  //what if the reference to track does not exist ?
     {
-      int IndexTmp = el->closestCtfTrackRef().index();
-      int TmpTrackCounter=0;
-      for(auto tr = tkColl->begin(); tr != tkColl->end(); ++tr)
-      {
-        if(TmpTrackCounter==IndexTmp)
-        {
-          TmpPt=tr->pt();
-          TmpEta=tr->eta();
-          TmpPhi=tr->phi();
-        }
-        TmpTrackCounter++;
-      }
+      auto ClosestTrackRef = tkColl->begin() + el->closestCtfTrackRef().index();
       int FoundSVmatch=0;
       for(long unsigned int b=0; b<SV3pt.size(); b++)
       {
-        if(TmpPt==SV3pt.at(b) && TmpEta==SV3eta.at(b) && TmpPhi==SV3phi.at(b))
+        if((float)ClosestTrackRef->pt()==SV3pt.at(b) && (float)ClosestTrackRef->eta()==SV3eta.at(b) && (float)ClosestTrackRef->phi()==SV3phi.at(b))
         {
-          EleSVtrkref.push_back(b);
+          EleSV3trkref.push_back(b);
           FoundSVmatch=1;
         }
       }
       if(FoundSVmatch==0)
-      EleSVtrkref.push_back(99);
+      EleSV3trkref.push_back(99);
     }
     else if(el->pt()>5.)
-    EleSVtrkref.push_back(99);
+    EleSV3trkref.push_back(99);
+
+    if(el->pt()>5)
+    {
+      const auto iter = electrons->ptrAt(numele);
+      ele_pt.push_back(el->pt());
+      ele_eta.push_back(el->eta());
+      ele_phi.push_back(el->phi());
+      ele_charge.push_back(el->charge());
+      const auto ele = electrons->ptrAt(numele);
+      ElectronMVAEstimatorRun2Fall17NoIsoV2Values.push_back((*mvaV2NoIsoValues)[iter]);
+      ElectronMVAEstimatorRun2Fall17IsoV2Values.push_back((*mvaV2IsoValues)[iter]);
+      EleTrkIsNoNull.push_back(el->closestCtfTrackRef().isNonnull());
+      ele_x.push_back(el->vx());
+      ele_y.push_back(el->vy());
+      ele_z.push_back(el->vz());
+      ele_gsf_charge.push_back(el->gsfTrack()->charge());
+      SumPt=0.;
+      num5=0;
+      TrackIndexHelper=0;
+      if(el->closestCtfTrackRef().isNonnull())
+      index = el->closestCtfTrackRef().index();  //adding this if(tr_pt(index)==sv_tr_pt->at(k)) tr_pt je ovdi bez cuta
+      else
+      index=5000; //put random value so code doesn't break
+      for(auto tr = tkColl->begin(); tr != tkColl->end(); ++tr)
+      {
+        //std::cout<<el->pt()<<" "<<el->closestCtfTrackRef().isNonnull()<<" "<<el->closestCtfTrackRef().index()<<" "<<tr->pt()<<std::endl;
+        double dR2 = reco::deltaR2(el->eta(),el->phi(),tr->eta(),tr->phi());
+        double dz = fabs(tr->vz()-el->vz());
+        double dEta = fabs(tr->eta()-el->eta());
+        double TrackPt = tr->pt();
+        if(dR2>0 && dR2<0.4 && dz<0.1 && TrackPt>2 && dEta>0.005)
+        SumPt+=TrackPt;
+        if(tr->pt()<5. && TrackIndexHelper<index)
+        num5++; //count the number of tracks < 5GeV
+        if(TrackIndexHelper==index)
+        TrackPtHelper = tr->pt();
+        TrackIndexHelper++;
+      }
+      //std::cout<<el->pt()<<" "<<TrackPtHelper<<" "<<index-num5<<std::endl;
+      trkIsoEle.push_back(SumPt);
+      if(el->closestCtfTrackRef().isNonnull() && TrackPtHelper>5.)
+      EleTRKref.push_back(index-num5);
+      else
+      EleTRKref.push_back(99);
+      EleClosestTrackPt.push_back(TrackPtHelper);
+      numele++;
+    }
   }
 
   for(long unsigned int b=0; b<SV3pt.size();b++)
   {
     int RefSV3toEl=99;
-    for(long unsigned c=0; c<EleSVtrkref.size();c++)
+    for(long unsigned c=0; c<EleSV3trkref.size();c++)
     {
-      if(EleSVtrkref.at(c)==(int)b)
+      if(EleSV3trkref.at(c)==(int)b)
       RefSV3toEl=c;
     }
     SV3TrEleRef.push_back(RefSV3toEl);
@@ -480,7 +502,7 @@ void RecoAnalyzerV2::analyze(const edm::Event& iEvent, const edm::EventSetup& iS
   }
 
 
-  for (auto el = electrons->begin(); el != electrons->end(); ++el)
+  /*for (auto el = electrons->begin(); el != electrons->end(); ++el)
   {
     if(el->pt()>5)
     {
@@ -529,19 +551,10 @@ void RecoAnalyzerV2::analyze(const edm::Event& iEvent, const edm::EventSetup& iS
       numele++;
     }
 
-  }
-
-
-  /*for(i=0;i<numele;i++)
-  {
-    for(k=0;k<numtr;k++)
-    {
-      //if(EleTRKref[i]==k)
-      std::cout<<"bla:"<<ele_pt[i]<<" "<<tr_pt[k]<<" "<<EleTRKref[i]<<std::endl;
-    }
   }*/
 
-  if(numele==1 || numele==2)
+
+  if(numele==1 || numele==2) //add charge condition ?
   {
     reco_tree->Fill();
   }
