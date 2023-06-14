@@ -198,11 +198,6 @@ RecoAnalyzerV2::~RecoAnalyzerV2() {
 void RecoAnalyzerV2::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup) {
   using namespace edm;
 
-  /*if (cachedCaloGeometryID_ != iSetup.get<CaloGeometryRecord>().cacheIdentifier()) {
-        cachedCaloGeometryID_ = iSetup.get<CaloGeometryRecord>().cacheIdentifier();
-        iSetup.get<CaloGeometryRecord>().get(caloGeometry_);
-    }*/
-
   edm::Handle<edm::View<reco::GsfElectron> > electrons;
   iEvent.getByToken(electronsToken_, electrons);
 
@@ -224,13 +219,6 @@ void RecoAnalyzerV2::analyze(const edm::Event& iEvent, const edm::EventSetup& iS
 
   edm::Handle<reco::VertexCollection> primaryVertexHandle;
   iEvent.getByToken(PrimaryVertexToken,primaryVertexHandle);
-
-  //edm::Handle<edm::View<reco::GsfElectron> > electrons;
-  //iEvent.getByToken(electronsToken_, electrons);
-
-  /*for (size_t l = 0; l < electrons->size(); ++l){
-    const auto el = electrons->ptrAt(l);
-    std::cout << (*mvaV2NoIsoValues)[el] << std::endl;}*/
 
   numele=0;
   PFnumele=0;
@@ -391,12 +379,11 @@ void RecoAnalyzerV2::analyze(const edm::Event& iEvent, const edm::EventSetup& iS
       num5=0;
       TrackIndexHelper=0;
       if(el->closestCtfTrackRef().isNonnull())
-      index = el->closestCtfTrackRef().index();  //adding this if(tr_pt(index)==sv_tr_pt->at(k)) tr_pt je ovdi bez cuta
+      index = el->closestCtfTrackRef().index();
       else
       index=5000; //put random value so code doesn't break
       for(auto tr = tkColl->begin(); tr != tkColl->end(); ++tr)
       {
-        //std::cout<<el->pt()<<" "<<el->closestCtfTrackRef().isNonnull()<<" "<<el->closestCtfTrackRef().index()<<" "<<tr->pt()<<std::endl;
         double dR2 = reco::deltaR2(el->eta(),el->phi(),tr->eta(),tr->phi());
         double dz = fabs(tr->vz()-el->vz());
         double dEta = fabs(tr->eta()-el->eta());
@@ -409,7 +396,6 @@ void RecoAnalyzerV2::analyze(const edm::Event& iEvent, const edm::EventSetup& iS
         TrackPtHelper = tr->pt();
         TrackIndexHelper++;
       }
-      //std::cout<<el->pt()<<" "<<TrackPtHelper<<" "<<index-num5<<std::endl;
       trkIsoEle.push_back(SumPt);
       if(el->closestCtfTrackRef().isNonnull() && TrackPtHelper>5.)
       EleTRKref.push_back(index-num5);
@@ -458,59 +444,6 @@ void RecoAnalyzerV2::analyze(const edm::Event& iEvent, const edm::EventSetup& iS
     numtr++;
     }
   }
-
-
-  /*for (auto el = electrons->begin(); el != electrons->end(); ++el)
-  {
-    if(el->pt()>5)
-    {
-      const auto iter = electrons->ptrAt(numele);
-      ele_pt.push_back(el->pt());
-      ele_eta.push_back(el->eta());
-      ele_phi.push_back(el->phi());
-      ele_charge.push_back(el->charge());
-      const auto ele = electrons->ptrAt(numele);
-      ElectronMVAEstimatorRun2Fall17NoIsoV2Values.push_back((*mvaV2NoIsoValues)[iter]);
-      ElectronMVAEstimatorRun2Fall17IsoV2Values.push_back((*mvaV2IsoValues)[iter]);
-      EleTrkIsNoNull.push_back(el->closestCtfTrackRef().isNonnull());
-      ele_x.push_back(el->vx());
-      ele_y.push_back(el->vy());
-      ele_z.push_back(el->vz());
-      ele_gsf_charge.push_back(el->gsfTrack()->charge());
-      SumPt=0.;
-      num5=0;
-      TrackIndexHelper=0;
-      if(el->closestCtfTrackRef().isNonnull())
-      index = el->closestCtfTrackRef().index();  //adding this if(tr_pt(index)==sv_tr_pt->at(k)) tr_pt je ovdi bez cuta
-      else
-      index=5000; //put random value so code doesn't break
-      for(auto tr = tkColl->begin(); tr != tkColl->end(); ++tr)
-      {
-        //std::cout<<el->pt()<<" "<<el->closestCtfTrackRef().isNonnull()<<" "<<el->closestCtfTrackRef().index()<<" "<<tr->pt()<<std::endl;
-        double dR2 = reco::deltaR2(el->eta(),el->phi(),tr->eta(),tr->phi());
-        double dz = fabs(tr->vz()-el->vz());
-        double dEta = fabs(tr->eta()-el->eta());
-        double TrackPt = tr->pt();
-        if(dR2>0 && dR2<0.4 && dz<0.1 && TrackPt>2 && dEta>0.005)
-        SumPt+=TrackPt;
-        if(tr->pt()<5. && TrackIndexHelper<index)
-        num5++; //count the number of tracks < 5GeV
-        if(TrackIndexHelper==index)
-        TrackPtHelper = tr->pt();
-        TrackIndexHelper++;
-      }
-      //std::cout<<el->pt()<<" "<<TrackPtHelper<<" "<<index-num5<<std::endl;
-      trkIsoEle.push_back(SumPt);
-      if(el->closestCtfTrackRef().isNonnull() && TrackPtHelper>5.)
-      EleTRKref.push_back(index-num5);
-      else
-      EleTRKref.push_back(99);
-      EleClosestTrackPt.push_back(TrackPtHelper);
-      numele++;
-    }
-
-  }*/
-
 
   if(numele==1 || numele==2) //add charge condition ?
   {
