@@ -3,7 +3,6 @@ from CRABClient.UserUtilities import config
 
 config = config()
 
-#config.General.requestName = 'Bpark_MiniAOD_MC_reliso_UL' # Naming for CRAB and maps
 config.General.requestName = 'ParkingBPH1B_AOD_DATA_UL_v5'
 config.General.workArea = 'crab_projects' # area where information about crab jobs will be saved. You should create this directory next to this file
 config.General.transferOutputs = True

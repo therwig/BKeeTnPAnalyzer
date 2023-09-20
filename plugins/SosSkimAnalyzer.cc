@@ -56,6 +56,8 @@
 #include "DataFormats/GsfTrackReco/interface/GsfTrack.h"
 #include "DataFormats/GsfTrackReco/interface/GsfTrackFwd.h"
 
+using std::cout;
+using std::endl;
 
 
 class SosSkimAnalyzer : public edm::one::EDAnalyzer<edm::one::SharedResources> {
@@ -73,6 +75,8 @@ private:
   edm::EDGetToken electronsToken_;
   edm::EDGetToken lowPtElectronsToken_;
   edm::EDGetTokenT<reco::TrackCollection> TrackToken;
+  edm::EDGetTokenT<edm::ValueMap<float> > cutvValuesMapToken;
+  edm::EDGetTokenT<edm::ValueMap<float> > lowptValuesMapToken;
   edm::EDGetTokenT<edm::ValueMap<float> > mvaV2IsoValuesMapToken;
   edm::EDGetTokenT<edm::ValueMap<float> > mvaV2NoIsoValuesMapToken;
   edm::EDGetTokenT<reco::VertexCollection> SecondaryVertexToken;
@@ -82,6 +86,8 @@ private:
   edm::InputTag Electron_;
   edm::InputTag LowPtElectron_;
   edm::InputTag TrackInputTag_;
+  edm::InputTag cutvValuesMapInputTag_;
+  edm::InputTag lowptValuesMapInputTag_;
   edm::InputTag mvaV2IsoValuesMapInputTag_;
   edm::InputTag mvaV2NoIsoValuesMapInputTag_;
   edm::InputTag SecondaryVertexInputTag_;
@@ -109,6 +115,7 @@ private:
   float Probe_cutBased, Probe_mvaFall17V2noIso, Probe_mvaFall17V2Iso, Probe_lowPtID;
   // per event
   float TnP_ht, TnP_met, TnP_ipair;
+  float K_pt, K_eta, K_phi;
     
 };
 
@@ -116,6 +123,8 @@ SosSkimAnalyzer::SosSkimAnalyzer(const edm::ParameterSet& iConfig):
 Electron_(iConfig.getUntrackedParameter<edm::InputTag>("Electron")),
 LowPtElectron_(iConfig.getUntrackedParameter<edm::InputTag>("LowPtElectron")),
 TrackInputTag_(iConfig.getUntrackedParameter<edm::InputTag>("Track")),
+cutvValuesMapInputTag_(iConfig.getUntrackedParameter<edm::InputTag>("cutV")),
+lowptValuesMapInputTag_(iConfig.getUntrackedParameter<edm::InputTag>("lowptValuesMap")),
 mvaV2IsoValuesMapInputTag_(iConfig.getUntrackedParameter<edm::InputTag>("mvaV2IsoValuesMap")),
 mvaV2NoIsoValuesMapInputTag_(iConfig.getUntrackedParameter<edm::InputTag>("mvaV2NoIsoValuesMap")),
 SecondaryVertexInputTag_(iConfig.getUntrackedParameter<edm::InputTag>("secondaryVertices")),
@@ -125,6 +134,8 @@ JetInputTag_(iConfig.getUntrackedParameter<edm::InputTag>("jets"))
   electronsToken_    = consumes<edm::View<reco::GsfElectron> >(Electron_);
   lowPtElectronsToken_    = consumes<edm::View<reco::GsfElectron> >(LowPtElectron_);
   TrackToken = consumes<reco::TrackCollection>(TrackInputTag_);
+  cutvValuesMapToken = consumes<edm::ValueMap<float>>(cutvValuesMapInputTag_);
+  lowptValuesMapToken = consumes<edm::ValueMap<float>>(lowptValuesMapInputTag_);
   mvaV2IsoValuesMapToken = consumes<edm::ValueMap<float>>(mvaV2IsoValuesMapInputTag_);
   mvaV2NoIsoValuesMapToken = consumes<edm::ValueMap<float>>(mvaV2NoIsoValuesMapInputTag_);
   SecondaryVertexToken = consumes<reco::VertexCollection>(SecondaryVertexInputTag_);
@@ -166,6 +177,9 @@ JetInputTag_(iConfig.getUntrackedParameter<edm::InputTag>("jets"))
   reco_tree->Branch("Probe_charge",&Probe_charge);
   reco_tree->Branch("Probe_matches_GED",&Probe_matches_GED);
   reco_tree->Branch("Probe_matches_LowPt",&Probe_matches_LowPt);
+  reco_tree->Branch("K_pt",&K_pt);
+  reco_tree->Branch("K_eta",&K_eta);
+  reco_tree->Branch("K_phi",&K_phi);
   reco_tree->Branch("TnP_ht",&TnP_ht);
   reco_tree->Branch("TnP_met",&TnP_met);
   reco_tree->Branch("TnP_ipair",&TnP_ipair);
@@ -202,6 +216,11 @@ void SosSkimAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSetup& i
 
   edm::Handle<reco::TrackCollection> TrackHandle;
   iEvent.getByToken(TrackToken, TrackHandle);
+
+  edm::Handle<edm::ValueMap<float> > cutvValues;
+  iEvent.getByToken(cutvValuesMapToken,cutvValues);
+  edm::Handle<edm::ValueMap<float> > lowptValues;
+  iEvent.getByToken(lowptValuesMapToken,lowptValues);
 
   edm::Handle<edm::ValueMap<float> > mvaV2NoIsoValues;
   iEvent.getByToken(mvaV2NoIsoValuesMapToken,mvaV2NoIsoValues);
@@ -252,6 +271,9 @@ void SosSkimAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSetup& i
   Probe_pt = 0;
   Probe_eta = 0;
   Probe_phi = 0;
+  K_pt = 0;
+  K_eta = 0;
+  K_phi = 0;
   Probe_cutBased = -99;
   Probe_mvaFall17V2noIso = -99;
   Probe_mvaFall17V2Iso = -99;
@@ -269,8 +291,11 @@ void SosSkimAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSetup& i
 
   const reco::TrackCollection* tkColl = TrackHandle.product();
   const reco::VertexCollection* svColl = secondaryVertexHandle.product();
+  //bool debug=true;
+  bool debug=false;
 
-  // std::vector<unsigned int> good_sv_idx{};
+  if(debug)cout<<"== New Event =="<<endl;
+
   std::map<unsigned int, std::vector<unsigned int>> sv_tracks{};
   std::map<unsigned int, float> sv_massCalc{};
   std::map<unsigned int, int> sv_chargeCalc{};
@@ -281,7 +306,8 @@ void SosSkimAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSetup& i
       // int SVtrackSize = 0;
       std::vector<unsigned int> track_indices{};
       // search for suitable SV candidates
-      for(long unsigned int r=0;r<sv.tracksSize();r++){
+      if(debug) std::cout << "Checking vertex " << isv << " with " << sv.tracksSize() << " tracks (chi2="<<sv.chi2()<<"), ";
+      for(unsigned int r=0;r<sv.tracksSize();r++){
           const auto & tk = sv.trackRefAt(r);
           if(tk->pt()>0.7){
               svCharge+=tk->charge();
@@ -290,12 +316,27 @@ void SosSkimAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSetup& i
               track_indices.push_back(r);
           }
       }
-      // if(P_sum.M()>4.5 && track_indices.size()==3 && std::abs(svCharge)==1){ //fill only if satisfied
-      if(track_indices.size()==3 && std::abs(svCharge)==1){ //fill only if satisfied
+      if(debug) std::cout << track_indices.size() << " total, with charge " << svCharge << " and mass " << P_sum.M();
+      if(P_sum.M()>4.0 && track_indices.size()==3 && std::abs(svCharge)==1){ //fill only if satisfied
+          //if(track_indices.size()==3 && std::abs(svCharge)==1){ //fill only if satisfied
           // good_sv_idx.push_back(isv);
           sv_tracks[isv] = track_indices;
           sv_massCalc[isv] = P_sum.M();
           sv_chargeCalc[isv] = svCharge;
+          if(debug){
+              std::cout << " ITS GOOD! Tk idxs:";
+              for(auto idx : track_indices) cout << " " << idx;
+              if(debug) std::cout << std::endl;
+
+              for(unsigned int r=0;r<sv.tracksSize();r++){
+                  const auto & tk = sv.trackRefAt(r);
+                  if(tk->pt()>0.7){                      
+                      if(debug) cout<<" Good Tk " << r << " with pt eta phi " << tk->pt() << " " << tk->eta() << " " << tk->phi() << endl;
+                  }
+              }
+          }
+      } else if(debug){
+          std::cout << std::endl;
       }
   }
   if(sv_tracks.size()==0) return;
@@ -304,52 +345,80 @@ void SosSkimAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSetup& i
   float ht25=-1;
   for(const auto& p : sv_tracks){
       const auto& sv = svColl->at(p.first);
+      if(debug) cout<<"Considering vertex "<<p.first<<"(chi2="<<sv.chi2()<<") for ele matches"<<endl;;
       // check if any SV tracks match to a TAG electron
       std::vector<std::pair<unsigned int, unsigned int>> ged_tk_tag_indices{};
       std::vector<std::pair<unsigned int, unsigned int>> lowpt_tk_tag_indices{};
       for(const unsigned int track_index : p.second){
           const auto& tk = sv.trackRefAt(track_index);
+          if(debug) cout<<" Tk " << track_index << " with pt eta phi " << tk->pt() << " " << tk->eta() << " " << tk->phi() << endl;
           // check for a GED TAG
           for(unsigned int i=0; i < electrons->size(); i++){
               const auto& el = electrons->at(i);
-              if(!el.closestCtfTrackRef().isNonnull()) continue;
+              if(debug) cout<<" - GED " << i << " with pt eta phi " << el.pt() << " " << el.eta() << " " << el.phi();
+              if(!el.closestCtfTrackRef().isNonnull()){
+                  if(debug) cout<<" noref" << endl;
+                  continue;
+              }
               const auto &elTkRef = tkColl->begin() + el.closestCtfTrackRef().index();
+              if(debug) cout<<" (tkRef " << elTkRef->pt() << " " << elTkRef->eta() << " " << elTkRef->phi()<<")";
               if(tracksMatch(*elTkRef, *tk)) {
                   ged_tk_tag_indices.push_back(std::make_pair(i,track_index));
+                  if(debug) cout<<" is match ";
               }
+              if(debug) cout<<endl;
           }
           // check for a LowPt TAG
           for(unsigned int i=0; i < lowPtElectrons->size(); i++){
               const auto& el = lowPtElectrons->at(i);
-              if(!el.closestCtfTrackRef().isNonnull()) continue;
+              if(debug) cout<<" - LOW " << i << " with pt eta phi " << el.pt() << " " << el.eta() << " " << el.phi();
+              if(!el.closestCtfTrackRef().isNonnull()){
+                  if(debug) cout<<" noref" << endl;
+                  continue;
+              }
               const auto &elTkRef = tkColl->begin() + el.closestCtfTrackRef().index();
+              if(debug) cout<<" (tkRef " << elTkRef->pt() << " " << elTkRef->eta() << " " << elTkRef->phi()<<")";
               if(tracksMatch(*elTkRef, *tk)) {
                   lowpt_tk_tag_indices.push_back(std::make_pair(i,track_index));
+                  if(debug) cout<<" is match ";
               }
+              if(debug) cout<<endl;
           }
       }
       // Look for j/psi(ee) candidates among the other tracks
       for(bool gedTag : {0,1}){
           const auto& el_tk_tag_indices = (gedTag ? ged_tk_tag_indices : lowpt_tk_tag_indices);
           for(const auto tag_indices : el_tk_tag_indices){
+              if(gedTag && debug)  cout << " > Checking GED Tags"<<endl;
+              if(!gedTag && debug) cout << " > Checking LOW Tags"<<endl;
               const auto &eleColl = (gedTag ? electrons : lowPtElectrons);
               const auto& tagEl = eleColl->at(tag_indices.first);
               const unsigned int iTagTrack = tag_indices.second;
+              if(debug)cout<<"  Tag El(" << tag_indices.first << ") Tk(" << iTagTrack<<")" <<endl;
               for(const unsigned int iProbeTrack : p.second){
                   if (iTagTrack==iProbeTrack) continue;
                   const auto& probeTrack = sv.trackRefAt(iProbeTrack);
                   //  check for a j/psi candidate
                   float m = getMass(tagEl, *probeTrack);
-                  if (m > 2.4 && m < 3.8){
+                  if (m > 2.0 && m < 4.5){ // FIXME EVENTUALLY
+                      if(debug)cout<<"  - makes jpsi (m = "<<m<<") with track " << iProbeTrack << endl;
                       // probe track matches GED
                       int iGed=-1;
                       float min_dr=9e9;                      
                       for(unsigned int i=0; i < electrons->size(); i++){
                           const auto& el = electrons->at(i);
-                          float dr = reco::deltaR(el.eta(),el.phi(),probeTrack->eta(),probeTrack->phi());
+                          float dr=9e9;
+                          if ( el.closestCtfTrackRef().isNonnull() ){
+                              const auto &elTkRef = tkColl->begin() + el.closestCtfTrackRef().index();
+                              dr = reco::deltaR(elTkRef->eta(),elTkRef->phi(),probeTrack->eta(),probeTrack->phi());
+                          } else {
+                              dr = reco::deltaR(el.eta(),el.phi(),probeTrack->eta(),probeTrack->phi());
+                          }
                           if (dr < 0.01 && dr < min_dr){
                               min_dr = dr;
                               iGed=i;
+                              if(debug)cout<<"    with GED match (dr = "<<dr<<") Ele Idx "<<iGed<< endl;
+                              //if(debug)cout<<"    with GED match (dr = "<<dr<<", from " << elTkRef->eta() << " " << elTkRef->phi() << " " << probeTrack->eta() << " " << probeTrack->phi() << ") Ele Idx "<<iGed<< endl;
                           }
                       }
                       // probe track matches LowPt
@@ -357,13 +426,24 @@ void SosSkimAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSetup& i
                       min_dr=9e9;
                       for(unsigned int i=0; i < electrons->size(); i++){
                           const auto& el = lowPtElectrons->at(i);
-                          float dr = reco::deltaR(el.eta(),el.phi(),probeTrack->eta(),probeTrack->phi());
+                          // const auto &elTkRef = tkColl->begin() + el.closestCtfTrackRef().index();
+                          float dr=9e9;
+                          if ( el.closestCtfTrackRef().isNonnull() ){
+                              const auto &elTkRef = tkColl->begin() + el.closestCtfTrackRef().index();
+                              dr = reco::deltaR(elTkRef->eta(),elTkRef->phi(),probeTrack->eta(),probeTrack->phi());
+                          } else {
+                              dr = reco::deltaR(el.eta(),el.phi(),probeTrack->eta(),probeTrack->phi());
+                          }
+                          // float dr = reco::deltaR(elTkRef->eta(),elTkRef->phi(),probeTrack->eta(),probeTrack->phi());
                           if (dr < 0.01 && dr < min_dr){
                               min_dr = dr;
                               iLow=i;
+                              if(debug)cout<<"    with LOW match (dr = "<<dr<<") Ele Idx "<<iLow<< endl;
+                              //if(debug)cout<<"    with LOW match (dr = "<<dr<<", from " << elTkRef->eta() << " " << elTkRef->phi() << " " << probeTrack->eta() << " " << probeTrack->phi() << ") Ele Idx "<<iLow<< endl;
                           }
                       }
                       
+                      if(debug)cout<<" ~~ Recording m2 = "<<TnP_mass<<", m3 = "<<sv_massCalc[p.first]<<" with matches GED "<< iGed << " and LOW " << iLow << endl;
 
                       // fill tree
                       TnP_dr =  reco::deltaR(tagEl.eta(),tagEl.phi(),probeTrack->eta(),probeTrack->phi()) ;
@@ -383,11 +463,11 @@ void SosSkimAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSetup& i
                       Tag_eta = tagEl.eta();
                       Tag_phi = tagEl.phi();
                       if(gedTag){
-                          Tag_cutBased = 0; // TODO
+                          Tag_cutBased = (*cutvValues)[electrons->ptrAt(tag_indices.first)];
                           Tag_mvaFall17V2noIso = (*mvaV2NoIsoValues)[electrons->ptrAt(tag_indices.first)];
                           Tag_mvaFall17V2Iso = (*mvaV2IsoValues)[electrons->ptrAt(tag_indices.first)];
                       } else {
-                          Tag_lowPtID = 0; // TODO
+                          Tag_lowPtID = (*lowptValues)[lowPtElectrons->ptrAt(tag_indices.first)];
                       }
                       Tag_isLowPt = gedTag?0:1;
                       Tag_charge = tagEl.charge();
@@ -395,16 +475,33 @@ void SosSkimAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSetup& i
                       Probe_eta = probeTrack->eta();
                       Probe_phi = probeTrack->phi();
                       if(iGed>=0){
-                          Probe_cutBased = 0; // TODO
+                          Probe_cutBased = (*cutvValues)[electrons->ptrAt(iGed)];
                           Probe_mvaFall17V2noIso = (*mvaV2NoIsoValues)[electrons->ptrAt(iGed)];
                           Probe_mvaFall17V2Iso = (*mvaV2IsoValues)[electrons->ptrAt(iGed)];
                       }
                       if(iLow>=0){
-                          Probe_lowPtID = 0; // TODO
+                          Probe_lowPtID = (*lowptValues)[lowPtElectrons->ptrAt(iLow)];
                       }
                       Probe_charge = probeTrack->charge();
                       Probe_matches_GED = iGed>=0;
                       Probe_matches_LowPt = iLow>=0;
+
+                      // kTrack...
+                      int ik=-1;
+                      if(int(p.second[0]==iProbeTrack)+int(p.second[1]==iProbeTrack)+int(p.second[1]==iTagTrack)+int(p.second[0]==iTagTrack)==2) ik=p.second[2];
+                      if(int(p.second[0]==iProbeTrack)+int(p.second[2]==iProbeTrack)+int(p.second[2]==iTagTrack)+int(p.second[0]==iTagTrack)==2) ik=p.second[1];
+                      if(int(p.second[2]==iProbeTrack)+int(p.second[1]==iProbeTrack)+int(p.second[1]==iTagTrack)+int(p.second[2]==iTagTrack)==2) ik=p.second[0];
+                      // cout <<"A"<<int(p.second[0]==iProbeTrack)+int(p.second[1]==iProbeTrack)+int(p.second[1]==iTagTrack)+int(p.second[0]==iTagTrack)<<" "<<p.second[2]<<endl;
+                      // cout <<"B"<<int(p.second[0]==iProbeTrack)+int(p.second[2]==iProbeTrack)+int(p.second[2]==iTagTrack)+int(p.second[0]==iTagTrack)<<" "<<p.second[1]<<endl;
+                      // cout <<"C"<<int(p.second[2]==iProbeTrack)+int(p.second[1]==iProbeTrack)+int(p.second[1]==iTagTrack)+int(p.second[2]==iTagTrack)<<" "<<p.second[0]<<endl;
+                      // cout <<"ik " << ik<<endl;
+                      if(ik>=0){
+                          const auto& kTrack = sv.trackRefAt(ik);
+                          K_pt = kTrack->pt();
+                          K_eta = kTrack->eta();
+                          K_phi = kTrack->phi();
+                          //cout <<Tag_pt << " " << Probe_pt << " " << K_pt <<endl;
+                      }
                       
                       // calc ht if we haven't already done so
                       if(ht25<-0.5){
