@@ -76,9 +76,13 @@ private:
   edm::EDGetToken lowPtElectronsToken_;
   edm::EDGetTokenT<reco::TrackCollection> TrackToken;
   edm::EDGetTokenT<edm::ValueMap<float> > cutvValuesMapToken;
+  edm::EDGetTokenT<edm::ValueMap<float> > cutlValuesMapToken;
+  edm::EDGetTokenT<edm::ValueMap<float> > cutmValuesMapToken;
+  edm::EDGetTokenT<edm::ValueMap<float> > cuttValuesMapToken;
   edm::EDGetTokenT<edm::ValueMap<float> > lowptValuesMapToken;
   edm::EDGetTokenT<edm::ValueMap<float> > mvaV2IsoValuesMapToken;
   edm::EDGetTokenT<edm::ValueMap<float> > mvaV2NoIsoValuesMapToken;
+  edm::EDGetTokenT<reco::VertexCollection> PrimaryVertexToken;
   edm::EDGetTokenT<reco::VertexCollection> SecondaryVertexToken;
   edm::EDGetTokenT<std::vector<reco::PFMET> > MetToken;
   edm::EDGetTokenT<std::vector<reco::PFJet> > JetToken;
@@ -87,9 +91,13 @@ private:
   edm::InputTag LowPtElectron_;
   edm::InputTag TrackInputTag_;
   edm::InputTag cutvValuesMapInputTag_;
+  edm::InputTag cutlValuesMapInputTag_;
+  edm::InputTag cutmValuesMapInputTag_;
+  edm::InputTag cuttValuesMapInputTag_;
   edm::InputTag lowptValuesMapInputTag_;
   edm::InputTag mvaV2IsoValuesMapInputTag_;
   edm::InputTag mvaV2NoIsoValuesMapInputTag_;
+  edm::InputTag PrimaryVertexInputTag_;
   edm::InputTag SecondaryVertexInputTag_;
   edm::InputTag MetInputTag_;
   edm::InputTag JetInputTag_;
@@ -104,7 +112,7 @@ private:
   // j/psi(ee) cand pair
   float TnP_dr, TnP_mass;
   // sv B(Kee) cand triplet
-  float sv_mass, sv_chi2, sv_ndof, sv_charge, sv_pt, sv_eta, sv_phi, sv_x, sv_y, sv_z;
+  float sv_mass, sv_chi2, sv_prob, sv_ndof, sv_charge, sv_pt, sv_eta, sv_phi, sv_x, sv_y, sv_z;
   int sv_nTrack;
   // tag
   float Tag_pt, Tag_eta, Tag_phi, Tag_cutBased, Tag_mvaFall17V2noIso, Tag_mvaFall17V2Iso, Tag_lowPtID;
@@ -116,7 +124,14 @@ private:
   // per event
   float TnP_ht, TnP_met, TnP_ipair;
   float K_pt, K_eta, K_phi;
-    
+
+    //
+    float pv_x, pv_y, pv_z;
+    float K_x, K_y, K_z;
+    float Tag_x, Tag_y, Tag_z;
+    float Probe_x, Probe_y, Probe_z;
+    float dr_K_Probe;
+    float dr_K_Tag;
 };
 
 SosSkimAnalyzer::SosSkimAnalyzer(const edm::ParameterSet& iConfig):
@@ -124,9 +139,13 @@ Electron_(iConfig.getUntrackedParameter<edm::InputTag>("Electron")),
 LowPtElectron_(iConfig.getUntrackedParameter<edm::InputTag>("LowPtElectron")),
 TrackInputTag_(iConfig.getUntrackedParameter<edm::InputTag>("Track")),
 cutvValuesMapInputTag_(iConfig.getUntrackedParameter<edm::InputTag>("cutV")),
+cutlValuesMapInputTag_(iConfig.getUntrackedParameter<edm::InputTag>("cutL")),
+cutmValuesMapInputTag_(iConfig.getUntrackedParameter<edm::InputTag>("cutM")),
+cuttValuesMapInputTag_(iConfig.getUntrackedParameter<edm::InputTag>("cutT")),
 lowptValuesMapInputTag_(iConfig.getUntrackedParameter<edm::InputTag>("lowptValuesMap")),
 mvaV2IsoValuesMapInputTag_(iConfig.getUntrackedParameter<edm::InputTag>("mvaV2IsoValuesMap")),
 mvaV2NoIsoValuesMapInputTag_(iConfig.getUntrackedParameter<edm::InputTag>("mvaV2NoIsoValuesMap")),
+PrimaryVertexInputTag_(iConfig.getUntrackedParameter<edm::InputTag>("primaryVertices")),
 SecondaryVertexInputTag_(iConfig.getUntrackedParameter<edm::InputTag>("secondaryVertices")),
 MetInputTag_(iConfig.getUntrackedParameter<edm::InputTag>("met")),
 JetInputTag_(iConfig.getUntrackedParameter<edm::InputTag>("jets"))
@@ -135,9 +154,13 @@ JetInputTag_(iConfig.getUntrackedParameter<edm::InputTag>("jets"))
   lowPtElectronsToken_    = consumes<edm::View<reco::GsfElectron> >(LowPtElectron_);
   TrackToken = consumes<reco::TrackCollection>(TrackInputTag_);
   cutvValuesMapToken = consumes<edm::ValueMap<float>>(cutvValuesMapInputTag_);
+  cutlValuesMapToken = consumes<edm::ValueMap<float>>(cutlValuesMapInputTag_);
+  cutmValuesMapToken = consumes<edm::ValueMap<float>>(cutmValuesMapInputTag_);
+  cuttValuesMapToken = consumes<edm::ValueMap<float>>(cuttValuesMapInputTag_);
   lowptValuesMapToken = consumes<edm::ValueMap<float>>(lowptValuesMapInputTag_);
   mvaV2IsoValuesMapToken = consumes<edm::ValueMap<float>>(mvaV2IsoValuesMapInputTag_);
   mvaV2NoIsoValuesMapToken = consumes<edm::ValueMap<float>>(mvaV2NoIsoValuesMapInputTag_);
+  PrimaryVertexToken = consumes<reco::VertexCollection>(PrimaryVertexInputTag_);
   SecondaryVertexToken = consumes<reco::VertexCollection>(SecondaryVertexInputTag_);
   MetToken = consumes<std::vector<reco::PFMET> >(MetInputTag_);
   JetToken = consumes<std::vector<reco::PFJet> >(JetInputTag_);
@@ -149,6 +172,7 @@ JetInputTag_(iConfig.getUntrackedParameter<edm::InputTag>("jets"))
   reco_tree->Branch("TnP_mass",&TnP_mass);
   reco_tree->Branch("sv_mass",&sv_mass);
   reco_tree->Branch("sv_chi2",&sv_chi2);
+  reco_tree->Branch("sv_prob",&sv_prob);
   reco_tree->Branch("sv_ndof",&sv_ndof);
   reco_tree->Branch("sv_charge",&sv_charge);
   reco_tree->Branch("sv_pt",&sv_pt);
@@ -183,6 +207,21 @@ JetInputTag_(iConfig.getUntrackedParameter<edm::InputTag>("jets"))
   reco_tree->Branch("TnP_ht",&TnP_ht);
   reco_tree->Branch("TnP_met",&TnP_met);
   reco_tree->Branch("TnP_ipair",&TnP_ipair);
+
+  reco_tree->Branch("Probe_x",&Probe_x);
+  reco_tree->Branch("Probe_y",&Probe_y);
+  reco_tree->Branch("Probe_z",&Probe_z);
+  reco_tree->Branch("Tag_x",&Tag_x);
+  reco_tree->Branch("Tag_y",&Tag_y);
+  reco_tree->Branch("Tag_z",&Tag_z);
+  reco_tree->Branch("pv_x",&pv_x);
+  reco_tree->Branch("pv_y",&pv_y);
+  reco_tree->Branch("pv_z",&pv_z);
+  reco_tree->Branch("K_x",&K_x);
+  reco_tree->Branch("K_y",&K_y);
+  reco_tree->Branch("K_z",&K_z);
+  reco_tree->Branch("dr_K_Probe",&dr_K_Probe);
+  reco_tree->Branch("dr_K_Tag",&dr_K_Tag);
 
   //Event number
   // reco_tree->Branch("evtnum",&evtnum);
@@ -219,8 +258,34 @@ void SosSkimAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSetup& i
 
   edm::Handle<edm::ValueMap<float> > cutvValues;
   iEvent.getByToken(cutvValuesMapToken,cutvValues);
+  edm::Handle<edm::ValueMap<float> > cutlValues;
+  iEvent.getByToken(cutlValuesMapToken,cutlValues);
+  edm::Handle<edm::ValueMap<float> > cutmValues;
+  iEvent.getByToken(cutmValuesMapToken,cutmValues);
+  edm::Handle<edm::ValueMap<float> > cuttValues;
+  iEvent.getByToken(cuttValuesMapToken,cuttValues);
   edm::Handle<edm::ValueMap<float> > lowptValues;
   iEvent.getByToken(lowptValuesMapToken,lowptValues);
+
+  // cout << "n electrons: " << lowPtElectrons->size() << endl;
+  // cout << "n values: " << lowptValues->size() << endl;
+  // for(unsigned int i=0;i<lowPtElectrons->size();i++){
+  //     //cout << " ele " << (lowPtElectrons->refAt(i)).id() << endl;
+  //     ///////// cout << " ele " << (*lowPtElectrons->ptrAt(i)).id() << endl;
+  //     const auto iter = lowPtElectrons->ptrAt(i);
+  //     const auto val = (*lowptValues)[iter];
+  //     cout << " ele " << iter->pt() << " and " << val << endl;      
+  // }
+
+  // auto val = lowptValues->begin();
+  // for(unsigned int i=0;i<lowptValues->size();i++){
+  //     // cout << " val " << (*lowptValues)->ptrAt(i)).id() << endl;
+  //     // cout << " val " << val.id() << endl;
+  //     val++;
+  // }
+                      //     Tag_mvaFall17V2Iso = (*mvaV2IsoValues)[electrons->ptrAt(tag_indices.first)];
+                      // } else {
+                      //     Tag_lowPtID = (*lowptValues)[lowPtElectrons->ptrAt(tag_indices.first)];
 
   edm::Handle<edm::ValueMap<float> > mvaV2NoIsoValues;
   iEvent.getByToken(mvaV2NoIsoValuesMapToken,mvaV2NoIsoValues);
@@ -228,6 +293,8 @@ void SosSkimAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSetup& i
   edm::Handle<edm::ValueMap<float> > mvaV2IsoValues;
   iEvent.getByToken(mvaV2IsoValuesMapToken,mvaV2IsoValues);
 
+  edm::Handle<reco::VertexCollection> primaryVertexHandle;
+  iEvent.getByToken(PrimaryVertexToken,primaryVertexHandle);
   edm::Handle<reco::VertexCollection> secondaryVertexHandle;
   iEvent.getByToken(SecondaryVertexToken,secondaryVertexHandle);
 
@@ -243,13 +310,14 @@ void SosSkimAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSetup& i
   // }
 
   // must have at least one electron (GED or lowpt) and an SV
-  if( secondaryVertexHandle->size()==0 || (electrons->size()==0 && lowPtElectrons->size()==0) ) return;
+  if( primaryVertexHandle->size()==0 || secondaryVertexHandle->size()==0 || (electrons->size()==0 && lowPtElectrons->size()==0) ) return;
 
   // evtnum=0;
   TnP_dr = 0;
   TnP_mass = 0;
   sv_mass = 0;
   sv_chi2 = 0;
+  sv_prob = 0;
   sv_ndof = 0;
   sv_charge = -99;
   sv_pt = 0;
@@ -284,14 +352,27 @@ void SosSkimAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSetup& i
   TnP_ht = -1;
   TnP_met = -1;
   TnP_ipair = -1;
-
+  pv_x = 0;
+  pv_y = 0;
+  pv_z = 0;
+  K_x = 0;
+  K_y = 0;
+  K_z = 0;
+  Tag_x = 0;
+  Tag_y = 0;
+  Tag_z = 0;
+  Probe_x = 0;
+  Probe_y = 0;
+  Probe_z = 0;
+  dr_K_Probe = 0;
+  dr_K_Tag = 0;
 
   //helper variables
   TLorentzVector P_sum,P_tmp;
 
   const reco::TrackCollection* tkColl = TrackHandle.product();
   const reco::VertexCollection* svColl = secondaryVertexHandle.product();
-  //bool debug=true;
+  // bool debug=true;
   bool debug=false;
 
   if(debug)cout<<"== New Event =="<<endl;
@@ -318,7 +399,7 @@ void SosSkimAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSetup& i
       }
       if(debug) std::cout << track_indices.size() << " total, with charge " << svCharge << " and mass " << P_sum.M();
       if(P_sum.M()>4.0 && track_indices.size()==3 && std::abs(svCharge)==1){ //fill only if satisfied
-          //if(track_indices.size()==3 && std::abs(svCharge)==1){ //fill only if satisfied
+      // if(track_indices.size()==3 && std::abs(svCharge)==1){ //fill only if satisfied
           // good_sv_idx.push_back(isv);
           sv_tracks[isv] = track_indices;
           sv_massCalc[isv] = P_sum.M();
@@ -400,7 +481,8 @@ void SosSkimAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSetup& i
                   const auto& probeTrack = sv.trackRefAt(iProbeTrack);
                   //  check for a j/psi candidate
                   float m = getMass(tagEl, *probeTrack);
-                  if (m > 2.0 && m < 4.5){ // FIXME EVENTUALLY
+                  if (m > 2.0 && m < 4.5 && (tagEl.charge()+probeTrack->charge()==0)){ // FIXME EVENTUALLY
+                  // if (m > 0.0 && m < 400.5 && (tagEl->charge()+probeTrack->charge()==0)){ // FIXME EVENTUALLY
                       if(debug)cout<<"  - makes jpsi (m = "<<m<<") with track " << iProbeTrack << endl;
                       // probe track matches GED
                       int iGed=-1;
@@ -424,7 +506,7 @@ void SosSkimAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSetup& i
                       // probe track matches LowPt
                       int iLow=-1;
                       min_dr=9e9;
-                      for(unsigned int i=0; i < electrons->size(); i++){
+                      for(unsigned int i=0; i < lowPtElectrons->size(); i++){
                           const auto& el = lowPtElectrons->at(i);
                           // const auto &elTkRef = tkColl->begin() + el.closestCtfTrackRef().index();
                           float dr=9e9;
@@ -451,6 +533,7 @@ void SosSkimAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSetup& i
                       sv_mass = sv_massCalc[p.first];
                       sv_chi2 = sv.chi2();
                       sv_ndof = sv.ndof();
+                      sv_prob = TMath::Prob(sv_chi2,sv_ndof);
                       sv_charge = sv_massCalc[p.first];
                       // sv_pt = sv.pt();
                       // sv_eta = sv.eta();
@@ -463,29 +546,57 @@ void SosSkimAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSetup& i
                       Tag_eta = tagEl.eta();
                       Tag_phi = tagEl.phi();
                       if(gedTag){
-                          Tag_cutBased = (*cutvValues)[electrons->ptrAt(tag_indices.first)];
+                          const auto iter = electrons->ptrAt(tag_indices.first);
+                          const auto valV = (*cutvValues)[iter];
+                          const auto valL = (*cutlValues)[iter];
+                          const auto valM = (*cutmValues)[iter];
+                          const auto valT = (*cuttValues)[iter];
+                          // cout << "tag is ged with val " << val << endl;
+                          Tag_cutBased = valV+valL+valM+valT; //(*cutvValues)[electrons->ptrAt(tag_indices.first)];
                           Tag_mvaFall17V2noIso = (*mvaV2NoIsoValues)[electrons->ptrAt(tag_indices.first)];
                           Tag_mvaFall17V2Iso = (*mvaV2IsoValues)[electrons->ptrAt(tag_indices.first)];
                       } else {
-                          Tag_lowPtID = (*lowptValues)[lowPtElectrons->ptrAt(tag_indices.first)];
+                          const auto iter = lowPtElectrons->ptrAt(tag_indices.first);
+                          const auto val = (*lowptValues)[iter];
+                          Tag_lowPtID = val; //(*lowptValues)[lowPtElectrons->ptrAt(tag_indices.first)];
                       }
                       Tag_isLowPt = gedTag?0:1;
                       Tag_charge = tagEl.charge();
+                      Tag_x = tagEl.vx();
+                      Tag_y = tagEl.vy();
+                      Tag_z = tagEl.vz();
+
                       Probe_pt = probeTrack->pt();
                       Probe_eta = probeTrack->eta();
                       Probe_phi = probeTrack->phi();
                       if(iGed>=0){
-                          Probe_cutBased = (*cutvValues)[electrons->ptrAt(iGed)];
+                          const auto iter = electrons->ptrAt(iGed);
+                          const auto valV = (*cutvValues)[iter];
+                          const auto valL = (*cutlValues)[iter];
+                          const auto valM = (*cutmValues)[iter];
+                          const auto valT = (*cuttValues)[iter];
+                          // cout << "tag is ged with val " << val << endl;
+                          Probe_cutBased = valV+valL+valM+valT; //
+                          //Probe_cutBased = (*cutvValues)[electrons->ptrAt(iGed)];
                           Probe_mvaFall17V2noIso = (*mvaV2NoIsoValues)[electrons->ptrAt(iGed)];
                           Probe_mvaFall17V2Iso = (*mvaV2IsoValues)[electrons->ptrAt(iGed)];
                       }
                       if(iLow>=0){
-                          Probe_lowPtID = (*lowptValues)[lowPtElectrons->ptrAt(iLow)];
+                          const auto iter = lowPtElectrons->ptrAt(iLow);
+                          const auto val = (*lowptValues)[iter];
+                          Probe_lowPtID = val; //(*lowptValues)[lowPtElectrons->ptrAt(iLow)];
                       }
                       Probe_charge = probeTrack->charge();
                       Probe_matches_GED = iGed>=0;
                       Probe_matches_LowPt = iLow>=0;
+                      Probe_x = probeTrack->vx();
+                      Probe_y = probeTrack->vy();
+                      Probe_z = probeTrack->vz();
 
+                      pv_x = secondaryVertexHandle->begin()->x();
+                      pv_y = secondaryVertexHandle->begin()->y();
+                      pv_z = secondaryVertexHandle->begin()->z();
+                      
                       // kTrack...
                       int ik=-1;
                       if(int(p.second[0]==iProbeTrack)+int(p.second[1]==iProbeTrack)+int(p.second[1]==iTagTrack)+int(p.second[0]==iTagTrack)==2) ik=p.second[2];
@@ -500,6 +611,11 @@ void SosSkimAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSetup& i
                           K_pt = kTrack->pt();
                           K_eta = kTrack->eta();
                           K_phi = kTrack->phi();
+                          K_x = kTrack->vx();
+                          K_y = kTrack->vy();
+                          K_z = kTrack->vz();
+                          dr_K_Probe =  reco::deltaR(probeTrack->eta(), probeTrack->phi(), kTrack->eta(), kTrack->phi());
+                          dr_K_Tag   =  reco::deltaR(tagEl.eta(), tagEl.phi(), kTrack->eta(), kTrack->phi());
                           //cout <<Tag_pt << " " << Probe_pt << " " << K_pt <<endl;
                       }
                       

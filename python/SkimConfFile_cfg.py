@@ -11,7 +11,8 @@ process.load('Configuration.StandardSequences.FrontierConditions_GlobalTag_cff')
 #process.GlobalTag.globaltag = '106X_dataRun2_v35'
 
 process.maxEvents = cms.untracked.PSet( input = cms.untracked.int32(-1))
-process.maxEvents = cms.untracked.PSet( input = cms.untracked.int32(10000))
+#process.maxEvents = cms.untracked.PSet( input = cms.untracked.int32(10000))
+#process.maxEvents = cms.untracked.PSet( input = cms.untracked.int32(50))
 process.MessageLogger.cerr.FwkReport.reportEvery = 10000000
 
 process.source = cms.Source("PoolSource",fileNames = cms.untracked.vstring('file:../TestFiles/CD7C6E2F-3535-B347-A5F9-060D8A63508A.root'))
@@ -20,14 +21,19 @@ process.source = cms.Source("PoolSource",fileNames = cms.untracked.vstring('root
 process.source = cms.Source("PoolSource",fileNames = cms.untracked.vstring('file:/uscms/home/therwig/nobackup/sos/bkeeTnP/local_files/230920_BKJPsi_AOD.6p7k.skim.root'))
 
 # one that throws an error
-process.source = cms.Source("PoolSource",fileNames = cms.untracked.vstring('root://cms-xrd-global.cern.ch//store/data/Run2018D/SingleMuon/AOD/12Nov2019_UL2018-v8/270000/0ACB5BE8-70BE-4D46-97E4-F7D5E685AEA5.root'))
+#process.source = cms.Source("PoolSource",fileNames = cms.untracked.vstring('root://cmsxrootd.fnal.gov//store/data/Run2018D/SingleMuon/AOD/12Nov2019_UL2018-v8/270005/1A0406E7-8CFD-7348-8506-244DEB7CED83.root'))
+#process.source = cms.Source("PoolSource",fileNames = cms.untracked.vstring('file:/uscms/home/therwig/nobackup/sos/bkeeTnP/local_files/0BD09223-9041-EB44-BB96-F2BCC45C6BA7.root')) # bpark
 
 process.reco = cms.EDAnalyzer('SosSkimAnalyzer',
    Electron = cms.untracked.InputTag("gedGsfElectrons"),
    LowPtElectron = cms.untracked.InputTag("lowPtGsfElectrons"),
    Track = cms.untracked.InputTag("generalTracks"),
    lowptValuesMap = cms.untracked.InputTag("lowPtGsfElectronID"),
+   primaryVertices = cms.untracked.InputTag("offlinePrimaryVertices"),
    cutV = cms.untracked.InputTag("egmGsfElectronIDs:cutBasedElectronID-Fall17-94X-V2-veto"),
+   cutL = cms.untracked.InputTag("egmGsfElectronIDs:cutBasedElectronID-Fall17-94X-V2-loose"),
+   cutM = cms.untracked.InputTag("egmGsfElectronIDs:cutBasedElectronID-Fall17-94X-V2-medium"),
+   cutT = cms.untracked.InputTag("egmGsfElectronIDs:cutBasedElectronID-Fall17-94X-V2-tight"),
    mvaV2IsoValuesMap = cms.untracked.InputTag("electronMVAValueMapProducer:ElectronMVAEstimatorRun2Fall17IsoV2Values"),
    mvaV2NoIsoValuesMap = cms.untracked.InputTag("electronMVAValueMapProducer:ElectronMVAEstimatorRun2Fall17NoIsoV2Values"),
    # mvaV2NoIsoValuesMap = cms.untracked.InputTag("egmGsfElectronIDs:"),
